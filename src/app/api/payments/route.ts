@@ -2,22 +2,18 @@ import { NextResponse } from "next/server";
 import midtransClient from "midtrans-client";
 import { prisma } from "@/lib/prisma";
 
-console.log("MIDTRANS CONFIG:", {
-  serverKeyExists: Boolean(process.env.MIDTRANS_SERVER_KEY),
-  serverKeyPrefix: process.env.MIDTRANS_SERVER_KEY?.slice(0, 12),
-  serverKeyLength: process.env.MIDTRANS_SERVER_KEY?.length,
+const serverKey = process.env.MIDTRANS_SERVER_KEY;
+const clientKey = process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY;
 
-  clientKeyExists: Boolean(
-    process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY
-  ),
-  clientKeyPrefix:
-    process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY?.slice(0, 12),
+console.log("MIDTRANS CONFIG:", {
+  serverKeyExists: Boolean(serverKey),
+  clientKeyExists: Boolean(clientKey),
 });
 
 const snap = new midtransClient.Snap({
   isProduction: false,
-  serverKey: process.env.MIDTRANS_SERVER_KEY!,
-  clientKey: process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY!,
+  serverKey: serverKey!,
+  clientKey: clientKey!,
 });
 
 export async function POST(request: Request) {
@@ -25,19 +21,26 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { orderId } = body;
 
-    if (!orderId) {
+    // Validasi Order ID
+    const parsedOrderId = Number(orderId);
+
+    if (
+      !Number.isInteger(parsedOrderId) ||
+      parsedOrderId <= 0
+    ) {
       return NextResponse.json(
         {
           success: false,
-          message: "Order ID wajib diisi.",
+          message: "Order ID tidak valid.",
         },
         { status: 400 }
       );
     }
 
+    // Ambil order langsung dari database
     const order = await prisma.order.findUnique({
       where: {
-        id: Number(orderId),
+        id: parsedOrderId,
       },
       include: {
         items: true,
@@ -54,6 +57,7 @@ export async function POST(request: Request) {
       );
     }
 
+    // Jangan buat transaksi baru untuk order yang sudah dibayar
     if (order.paymentStatus === "PAID") {
       return NextResponse.json(
         {
@@ -64,9 +68,21 @@ export async function POST(request: Request) {
       );
     }
 
+    // Pastikan order memiliki item
+    if (order.items.length === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Order tidak memiliki produk.",
+        },
+        { status: 400 }
+      );
+    }
+
+    // Semua data pembayaran berasal dari DATABASE
     const parameter = {
       transaction_details: {
-        order_id: `GETHERE-${order.id}`,
+        order_id: `GETHERE-${order.id}-${crypto.randomUUID()}`,
         gross_amount: order.totalPrice,
       },
 

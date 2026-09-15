@@ -22,7 +22,19 @@ export async function POST(request: Request) {
     // VALIDASI SIGNATURE MIDTRANS
     // =========================
 
-    const serverKey = process.env.MIDTRANS_SERVER_KEY!;
+    const serverKey = process.env.MIDTRANS_SERVER_KEY;
+
+    if (!serverKey) {
+      console.error("MIDTRANS_SERVER_KEY belum tersedia.");
+
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Konfigurasi Midtrans belum lengkap.",
+        },
+        { status: 500 }
+      );
+    }
 
     const expectedSignature = crypto
       .createHash("sha512")
@@ -44,12 +56,49 @@ export async function POST(request: Request) {
     }
 
     // =========================
-    // AMBIL ID ORDER
+    // AMBIL ID ORDER GET-HERE
     // =========================
+    //
+    // Format baru:
+    // GETHERE-15-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+    //
+    // Format lama juga tetap didukung:
+    // GETHERE-15
+    //
 
-    const orderId = Number(
-      String(order_id).replace("GETHERE-", "")
+    const match = String(order_id).match(
+      /^GETHERE-(\d+)(?:-.+)?$/
     );
+
+    if (!match) {
+      console.error("INVALID MIDTRANS ORDER ID:", order_id);
+
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Format order ID tidak valid.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const orderId = Number(match[1]);
+
+    if (!Number.isInteger(orderId) || orderId <= 0) {
+      console.error("INVALID LOCAL ORDER ID:", orderId);
+
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Order ID tidak valid.",
+        },
+        { status: 400 }
+      );
+    }
+
+    // =========================
+    // AMBIL ORDER DARI DATABASE
+    // =========================
 
     const order = await prisma.order.findUnique({
       where: {
@@ -70,7 +119,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Simpan status sebelumnya
+    // Simpan status pembayaran sebelumnya
     const previousPaymentStatus = order.paymentStatus;
 
     // =========================
@@ -119,7 +168,9 @@ export async function POST(request: Request) {
     // TELEGRAM - PEMBAYARAN BERHASIL
     // =========================
 
-    // Hanya kirim notif kalau status BARU berubah menjadi PAID
+    // Hanya kirim notifikasi jika
+    // status baru berubah menjadi PAID
+
     if (
       paymentStatus === "PAID" &&
       previousPaymentStatus !== "PAID"
@@ -158,6 +209,10 @@ ${itemsText}
         `TELEGRAM PAYMENT NOTIFICATION SENT FOR ORDER #${orderId}`
       );
     }
+
+    // =========================
+    // RESPONSE
+    // =========================
 
     return NextResponse.json({
       success: true,
