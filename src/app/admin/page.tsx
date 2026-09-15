@@ -99,6 +99,9 @@ export default function AdminPage() {
       case "PROCESSING":
         return "bg-blue-100 text-blue-700";
 
+      case "SHIPPING":
+        return "bg-purple-100 text-purple-700";
+
       case "COMPLETED":
         return "bg-green-100 text-green-700";
 
@@ -411,11 +414,11 @@ export default function AdminPage() {
                       <>
                         <button
                           onClick={() =>
-                            updateStatus(order.id, "COMPLETED")
+                            updateStatus(order.id, "SHIPPING")
                           }
-                          className="rounded-full bg-green-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-green-700"
+                          className="rounded-full bg-[#211A16] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#8A6348]"
                         >
-                          Tandai Selesai
+                          🛵 Kirim Pesanan
                         </button>
 
                         <button
@@ -427,6 +430,17 @@ export default function AdminPage() {
                           Batalkan
                         </button>
                       </>
+                    )}
+
+                    {order.status === "SHIPPING" && (
+                      <button
+                        onClick={() =>
+                          updateStatus(order.id, "COMPLETED")
+                        }
+                        className="rounded-full bg-green-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-green-700"
+                      >
+                        ✓ Tandai Selesai
+                      </button>
                     )}
 
                     {order.status === "COMPLETED" && (

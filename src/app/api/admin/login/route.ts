@@ -8,6 +8,19 @@ export async function POST(request: Request) {
 
     const adminUsername = process.env.ADMIN_USERNAME;
     const adminPassword = process.env.ADMIN_PASSWORD;
+    const adminSessionSecret = process.env.ADMIN_SESSION_SECRET;
+
+    if (!adminUsername || !adminPassword || !adminSessionSecret) {
+      console.error("ADMIN ENV belum lengkap.");
+
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Konfigurasi server belum lengkap.",
+        },
+        { status: 500 }
+      );
+    }
 
     if (
       username !== adminUsername ||
@@ -27,7 +40,7 @@ export async function POST(request: Request) {
       message: "Login berhasil.",
     });
 
-    response.cookies.set("admin_session", "authenticated", {
+    response.cookies.set("admin_session", adminSessionSecret, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",

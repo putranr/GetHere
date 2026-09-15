@@ -179,13 +179,11 @@ export default function CheckoutPage() {
             result
           );
 
-          clearCart();
-
           alert(
             "Pembayaran berhasil! Terima kasih sudah order di GET-HERE Coffee."
           );
 
-          window.location.href = "/";
+          window.location.href = `/tracking?orderId=${orderData.order.id}`;
         },
 
         onPending: (result) => {

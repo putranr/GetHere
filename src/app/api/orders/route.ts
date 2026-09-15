@@ -1,9 +1,37 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendTelegramMessage } from "@/lib/telegram";
+import { products } from "@/lib/products";
 
-// GET semua order
-export async function GET() {
+// ==========================================
+// CEK SESSION ADMIN
+// ==========================================
+function isAdmin(request: NextRequest) {
+  const session = request.cookies.get("admin_session");
+  const adminSessionSecret = process.env.ADMIN_SESSION_SECRET;
+
+  if (!session || !adminSessionSecret) {
+    return false;
+  }
+
+  return session.value === adminSessionSecret;
+}
+
+// ==========================================
+// GET SEMUA ORDER
+// HANYA UNTUK ADMIN
+// ==========================================
+export async function GET(request: NextRequest) {
+  if (!isAdmin(request)) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Unauthorized.",
+      },
+      { status: 401 }
+    );
+  }
+
   try {
     const orders = await prisma.order.findMany({
       include: {
@@ -31,7 +59,10 @@ export async function GET() {
   }
 }
 
-// POST membuat order baru
+// ==========================================
+// POST MEMBUAT ORDER BARU
+// PUBLIC / CUSTOMER
+// ==========================================
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -62,18 +93,41 @@ export async function POST(request: Request) {
     }
 
     // Hitung total dari item yang dikirim
-    const totalPrice = items.reduce(
-      (
-        total: number,
-        item: {
-          price: number;
-          quantity: number;
-        }
-      ) => {
-        return total + item.price * item.quantity;
-      },
-      0
+    const validatedItems = items.map(
+  (item: {
+    productId: number;
+    quantity: number;
+  }) => {
+    const product = products.find(
+      (product) => product.id === Number(item.productId)
     );
+
+    if (!product) {
+      throw new Error("Produk tidak ditemukan.");
+    }
+
+    if (
+      !Number.isInteger(item.quantity) ||
+      item.quantity <= 0
+    ) {
+      throw new Error("Jumlah produk tidak valid.");
+    }
+
+    return {
+      productId: product.id,
+      name: product.name,
+      price: product.price,
+      quantity: item.quantity,
+    };
+  }
+);
+
+const totalPrice = validatedItems.reduce(
+  (total, item) => {
+    return total + item.price * item.quantity;
+  },
+  0
+);
 
     const order = await prisma.order.create({
       data: {
@@ -85,19 +139,7 @@ export async function POST(request: Request) {
         paymentStatus: "UNPAID",
 
         items: {
-          create: items.map(
-            (item: {
-              productId: number;
-              name: string;
-              price: number;
-              quantity: number;
-            }) => ({
-              productId: item.productId,
-              name: item.name,
-              price: item.price,
-              quantity: item.quantity,
-            })
-          ),
+          create: validatedItems,
         },
       },
 
@@ -106,7 +148,9 @@ export async function POST(request: Request) {
       },
     });
 
-     // Kirim notifikasi Telegram
+    // ==========================================
+    // TELEGRAM NOTIFICATION
+    // ==========================================
     const itemsText = order.items
       .map(
         (item) =>
@@ -149,15 +193,6 @@ ${order.note ? `📝 <b>Catatan:</b> ${order.note}` : ""}
       },
       { status: 201 }
     );
-
-    return NextResponse.json(
-      {
-        success: true,
-        message: "Order berhasil dibuat.",
-        order,
-      },
-      { status: 201 }
-    );
   } catch (error) {
     console.error("CREATE ORDER ERROR:", error);
 
@@ -171,8 +206,21 @@ ${order.note ? `📝 <b>Catatan:</b> ${order.note}` : ""}
   }
 }
 
-// PATCH mengubah status order
-export async function PATCH(request: Request) {
+// ==========================================
+// PATCH MENGUBAH STATUS ORDER
+// HANYA UNTUK ADMIN
+// ==========================================
+export async function PATCH(request: NextRequest) {
+  if (!isAdmin(request)) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Unauthorized.",
+      },
+      { status: 401 }
+    );
+  }
+
   try {
     const body = await request.json();
 
@@ -191,6 +239,7 @@ export async function PATCH(request: Request) {
     const allowedStatus = [
       "PENDING",
       "PROCESSING",
+      "SHIPPING",
       "COMPLETED",
       "CANCELLED",
     ];
