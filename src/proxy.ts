@@ -3,7 +3,17 @@ import { NextRequest, NextResponse } from "next/server";
 export function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
-  // Halaman login boleh diakses tanpa session
+  console.log("=== PROXY RUN ===");
+  console.log("PATH:", pathname);
+  console.log(
+    "SESSION:",
+    request.cookies.get("admin_session")?.value
+  );
+  console.log(
+    "SECRET EXISTS:",
+    Boolean(process.env.ADMIN_SESSION_SECRET)
+  );
+
   if (pathname === "/admin/login") {
     return NextResponse.next();
   }
@@ -11,16 +21,19 @@ export function proxy(request: NextRequest) {
   const session = request.cookies.get("admin_session");
   const adminSessionSecret = process.env.ADMIN_SESSION_SECRET;
 
-  // Tolak akses jika session tidak ada atau tidak sesuai
   if (
     !session ||
     !adminSessionSecret ||
     session.value !== adminSessionSecret
   ) {
+    console.log("=== PROXY: UNAUTHORIZED ===");
+
     return NextResponse.redirect(
       new URL("/admin/login", request.url)
     );
   }
+
+  console.log("=== PROXY: AUTHORIZED ===");
 
   return NextResponse.next();
 }
