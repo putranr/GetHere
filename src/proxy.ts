@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export function proxy(request: NextRequest) {
+   console.log("🔥 PROXY KEJALAN:", request.nextUrl.pathname);
   const pathname = request.nextUrl.pathname;
 
   console.log("=== PROXY RUN ===");
