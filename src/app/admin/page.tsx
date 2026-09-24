@@ -145,7 +145,11 @@ export default function AdminPage() {
           </div>
 
           <button
-            onClick={() => {
+            onClick={async () => {
+              await fetch("/api/admin/logout", {
+                method: "POST",
+              });
+
               window.location.href = "/admin/login";
             }}
             className="rounded-full bg-[#211A16] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#8A6348]"

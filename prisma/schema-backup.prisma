@@ -28,15 +28,3 @@ model OrderItem {
   quantity  Int
   order     Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
 }
-
-model Product {
-  id              Int      @id @default(autoincrement())
-  name            String
-  description     String?
-  image           String?
-  price           Int
-  discountPercent Int      @default(0)
-  isAvailable     Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-}
