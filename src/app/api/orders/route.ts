@@ -254,6 +254,22 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    const existingOrder = await prisma.order.findUnique({
+      where: {
+        id: Number(id),
+      },
+    });
+
+    if (!existingOrder) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Order tidak ditemukan.",
+        },
+        { status: 404 }
+      );
+    }
+
     const order = await prisma.order.update({
       where: {
         id: Number(id),
