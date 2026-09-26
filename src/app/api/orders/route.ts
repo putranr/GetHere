@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendTelegramMessage } from "@/lib/telegram";
-import { products } from "@/lib/products";
 
 // ==========================================
 // CEK SESSION ADMIN
@@ -93,41 +92,89 @@ export async function POST(request: Request) {
     }
 
     // Hitung total dari item yang dikirim
-    const validatedItems = items.map(
-  (item: {
-    productId: number;
-    quantity: number;
-  }) => {
-    const product = products.find(
-      (product) => product.id === Number(item.productId)
+    const validatedItems = [];
+
+    for (const item of items) {
+      const productId = Number(item.productId);
+      const quantity = Number(item.quantity);
+
+      if (
+        !Number.isInteger(productId) ||
+        productId <= 0
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Product ID tidak valid.",
+          },
+          { status: 400 }
+        );
+      }
+
+      if (
+        !Number.isInteger(quantity) ||
+        quantity <= 0
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Jumlah produk tidak valid.",
+          },
+          { status: 400 }
+        );
+      }
+
+      const product = await prisma.product.findUnique({
+        where: {
+          id: productId,
+        },
+      });
+
+      if (!product) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Produk tidak ditemukan.",
+          },
+          { status: 404 }
+        );
+      }
+
+      if (!product.isAvailable) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: `Produk ${product.name} sedang tidak tersedia.`,
+          },
+          { status: 400 }
+        );
+      }
+
+      // ==========================================
+      // HITUNG HARGA SETELAH DISKON
+      // BERDASARKAN DATABASE
+      // ==========================================
+
+      const finalPrice = Math.round(
+        product.price *
+          (100 - product.discountPercent) /
+          100
+      );
+
+      validatedItems.push({
+        productId: product.id,
+        name: product.name,
+        price: finalPrice,
+        quantity,
+      });
+    }
+
+    const totalPrice = validatedItems.reduce(
+      (total, item) => {
+        return total + item.price * item.quantity;
+      },
+      0
     );
-
-    if (!product) {
-      throw new Error("Produk tidak ditemukan.");
-    }
-
-    if (
-      !Number.isInteger(item.quantity) ||
-      item.quantity <= 0
-    ) {
-      throw new Error("Jumlah produk tidak valid.");
-    }
-
-    return {
-      productId: product.id,
-      name: product.name,
-      price: product.price,
-      quantity: item.quantity,
-    };
-  }
-);
-
-const totalPrice = validatedItems.reduce(
-  (total, item) => {
-    return total + item.price * item.quantity;
-  },
-  0
-);
 
     const order = await prisma.order.create({
       data: {
