@@ -243,22 +243,6 @@ export async function POST(request: NextRequest) {
             : null,
 
         // ====================================
-        // GAMBAR CUP
-        // ====================================
-        cupImage:
-          typeof cupImage === "string"
-            ? cupImage.trim() || null
-            : null,
-
-        // ====================================
-        // GAMBAR BOTTLE
-        // ====================================
-        bottleImage:
-          typeof bottleImage === "string"
-            ? bottleImage.trim() || null
-            : null,
-
-        // ====================================
         // CATEGORY
         // ====================================
         category: finalCategory,

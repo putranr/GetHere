@@ -360,14 +360,6 @@ export function CartProvider({
                         | string
                         | null;
 
-                      cupImage?:
-                        | string
-                        | null;
-
-                      bottleImage?:
-                        | string
-                        | null;
-
                       discountPercent?:
                         | number;
 
@@ -458,12 +450,6 @@ export function CartProvider({
 
                   image:
                     latestProduct.image,
-
-                  cupImage:
-                    latestProduct.cupImage,
-
-                  bottleImage:
-                    latestProduct.bottleImage,
 
                   // ========================================
                   // HARGA
@@ -630,12 +616,6 @@ export function CartProvider({
 
         image:
           product.image,
-
-        cupImage:
-          product.cupImage,
-
-        bottleImage:
-          product.bottleImage,
 
         // =================================================
         // HARGA

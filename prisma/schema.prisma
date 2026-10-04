@@ -38,10 +38,6 @@ model Product {
   description String?
   image       String?
 
-  // Foto khusus kemasan
-  cupImage    String?
-  bottleImage String?
-
   // Kategori produk
   category String @default("COFFEE")
 

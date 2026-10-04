@@ -410,10 +410,9 @@ export default function Home() {
         name: product.name,
         price: product.price,
         cupPrice: product.cupPrice,
-        bottlePrice:
-          product.bottlePrice,
-        discountPercent:
-          product.discountPercent,
+        bottlePrice: product.bottlePrice,
+        discountPercent: product.discountPercent,
+        category: product.category,
         packaging,
       });
     };

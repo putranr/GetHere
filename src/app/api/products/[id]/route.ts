@@ -229,26 +229,6 @@ export async function PATCH(
     }
 
     // ======================================
-    // GAMBAR CUP
-    // ======================================
-    if (cupImage !== undefined) {
-      updateData.cupImage =
-        typeof cupImage === "string"
-          ? cupImage.trim() || null
-          : null;
-    }
-
-    // ======================================
-    // GAMBAR BOTTLE
-    // ======================================
-    if (bottleImage !== undefined) {
-      updateData.bottleImage =
-        typeof bottleImage === "string"
-          ? bottleImage.trim() || null
-          : null;
-    }
-
-    // ======================================
     // CATEGORY
     // ======================================
     if (category !== undefined) {

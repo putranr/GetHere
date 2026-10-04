@@ -473,12 +473,7 @@ export default function CheckoutPage() {
                       (item.discountPercent ?? 0) >
                         0;
 
-                    const productImage =
-                      item.packaging === "CUP"
-                        ? item.cupImage ||
-                          item.image
-                        : item.bottleImage ||
-                          item.image;
+                   const productImage = item.image;
 
                     return (
                       <div
