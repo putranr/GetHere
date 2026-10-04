@@ -1,8 +1,47 @@
 "use client";
 
-import { useRef, useState, type MouseEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent,
+} from "react";
 import Link from "next/link";
-import { useCart } from "./context/CartContext";
+import {
+  useCart,
+  type Packaging,
+} from "./context/CartContext";
+
+// =========================================================
+// PRODUCT TYPE
+// =========================================================
+
+type Product = {
+  id: number;
+  name: string;
+  description?: string | null;
+
+  // Harga dasar
+  price: number;
+
+  // Harga kemasan
+  cupPrice?: number | null;
+  bottlePrice?: number | null;
+
+  // Gambar
+  image?: string | null;
+
+  // Diskon
+  discountPercent: number;
+
+  isAvailable: boolean;
+
+  category: "COFFEE" | "NON_COFFEE";
+};
+
+// =========================================================
+// PAGE
+// =========================================================
 
 export default function Home() {
   const {
@@ -10,807 +49,1400 @@ export default function Home() {
     addToCart,
     increaseQuantity,
     decreaseQuantity,
+    removeFromCart,
     totalItems,
     totalPrice,
   } = useCart();
+
+  // =======================================================
+  // PRODUCTS
+  // =======================================================
+
+  const [products, setProducts] = useState<Product[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+
+  // =======================================================
+  // UI
+  // =======================================================
 
   const [cartOpen, setCartOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const cartButtonRef = useRef<HTMLButtonElement>(null);
 
-  // =========================================================
-  // ANIMATION: PRODUK TERBANG KE KERANJANG
-  // =========================================================
-  const animateToCart = (event: MouseEvent<HTMLButtonElement>) => {
+  // =======================================================
+  // LOAD PRODUCTS
+  // =======================================================
+
+  useEffect(() => {
+    async function loadProducts() {
+      try {
+        setProductsLoading(true);
+
+        const response = await fetch("/api/products", {
+          method: "GET",
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          console.error("Gagal mengambil produk.");
+          return;
+        }
+
+        const data = await response.json();
+
+        if (
+          data.success &&
+          Array.isArray(data.products)
+        ) {
+          setProducts(
+            data.products.filter(
+              (product: Product) => product.isAvailable
+            )
+          );
+        }
+      } catch (error) {
+        console.error(
+          "Gagal mengambil produk:",
+          error
+        );
+      } finally {
+        setProductsLoading(false);
+      }
+    }
+
+    loadProducts();
+  }, []);
+
+  // =======================================================
+  // CATEGORY
+  // =======================================================
+
+  const isNonCoffee = (product: Product) =>
+    product.category === "NON_COFFEE";
+
+  const coffeeProducts = products.filter(
+    (product) => !isNonCoffee(product)
+  );
+
+  const nonCoffeeProducts = products.filter(
+    (product) => isNonCoffee(product)
+  );
+
+  // =======================================================
+  // PRICE
+  // =======================================================
+
+  const getPackagingPrice = (
+    product: Product,
+    packaging: Packaging
+  ): number | null => {
+    if (packaging === "CUP") {
+      return product.cupPrice ?? product.price;
+    }
+
+    return product.bottlePrice ?? null;
+  };
+
+  const getFinalPrice = (
+    product: Product,
+    packaging: Packaging
+  ): number | null => {
+    const originalPrice = getPackagingPrice(
+      product,
+      packaging
+    );
+
+    if (originalPrice === null) {
+      return null;
+    }
+
+    const discount =
+      product.discountPercent ?? 0;
+
+    return Math.max(
+      Math.round(
+        (originalPrice * (100 - discount)) / 100
+      ),
+      0
+    );
+  };
+
+  // =======================================================
+  // ANIMATION TO CART
+  // =======================================================
+
+  const animateToCart = (
+    event: MouseEvent<HTMLButtonElement>
+  ) => {
     const cartButton = cartButtonRef.current;
 
-    if (!cartButton) return;
+    if (!cartButton) {
+      return;
+    }
 
-    const productCard = event.currentTarget.closest(".product-card");
+    const productCard =
+      event.currentTarget.closest(
+        ".product-card"
+      );
 
-    const productImage = productCard?.querySelector(
-      "[data-product-image]"
-    ) as HTMLElement | null;
+    const productImage =
+      productCard?.querySelector(
+        "[data-product-image]"
+      ) as HTMLElement | null;
 
-    if (!productImage) return;
+    if (!productImage) {
+      return;
+    }
 
-    const startRect = productImage.getBoundingClientRect();
-    const endRect = cartButton.getBoundingClientRect();
+    const startRect =
+      productImage.getBoundingClientRect();
 
-    const startX = startRect.left + startRect.width / 2;
-    const startY = startRect.top + startRect.height / 2;
+    const endRect =
+      cartButton.getBoundingClientRect();
 
-    const endX = endRect.left + endRect.width / 2;
-    const endY = endRect.top + endRect.height / 2;
+    const startX =
+      startRect.left +
+      startRect.width / 2;
+
+    const startY =
+      startRect.top +
+      startRect.height / 2;
+
+    const endX =
+      endRect.left +
+      endRect.width / 2;
+
+    const endY =
+      endRect.top +
+      endRect.height / 2;
 
     const deltaX = endX - startX;
     const deltaY = endY - startY;
 
-    const flyingCoffee = document.createElement("div");
+    const flyingCoffee =
+      document.createElement("div");
 
     flyingCoffee.innerText = "☕";
 
-    flyingCoffee.style.position = "fixed";
-    flyingCoffee.style.left = `${startX}px`;
-    flyingCoffee.style.top = `${startY}px`;
-    flyingCoffee.style.transform = "translate(-50%, -50%) scale(1)";
-    flyingCoffee.style.fontSize =
-      window.innerWidth < 640 ? "48px" : "70px";
-    flyingCoffee.style.zIndex = "9999";
-    flyingCoffee.style.pointerEvents = "none";
-    flyingCoffee.style.filter =
-      "drop-shadow(0 12px 10px rgba(0,0,0,0.25))";
+    Object.assign(
+      flyingCoffee.style,
+      {
+        position: "fixed",
+        left: `${startX}px`,
+        top: `${startY}px`,
+        transform:
+          "translate(-50%, -50%) scale(1)",
+        fontSize:
+          window.innerWidth < 640
+            ? "42px"
+            : "62px",
+        zIndex: "9999",
+        pointerEvents: "none",
+        filter:
+          "drop-shadow(0 12px 10px rgba(0,0,0,0.25))",
+      }
+    );
 
-    document.body.appendChild(flyingCoffee);
+    document.body.appendChild(
+      flyingCoffee
+    );
 
-    // PHASE 1 — kopi naik
     flyingCoffee.animate(
       [
         {
-          transform: "translate(-50%, -50%) scale(1)",
+          transform:
+            "translate(-50%, -50%) scale(1)",
           opacity: 1,
         },
         {
           transform:
-            "translate(-50%, calc(-50% - 80px)) scale(1.08)",
+            "translate(-50%, calc(-50% - 70px)) scale(1.1)",
           opacity: 1,
         },
       ],
       {
-        duration: 700,
-        easing: "cubic-bezier(0.2, 0.8, 0.2, 1)",
+        duration: 550,
+        easing:
+          "cubic-bezier(0.2,0.8,0.2,1)",
         fill: "forwards",
       }
     );
 
-    // PHASE 2 + 3 — tunggu 1 detik lalu terbang
     setTimeout(() => {
       flyingCoffee.animate(
         [
           {
             transform:
-              "translate(-50%, calc(-50% - 80px)) scale(1.08)",
+              "translate(-50%, calc(-50% - 70px)) scale(1.1)",
             opacity: 1,
           },
           {
             transform: `translate(
-              calc(-50% + ${deltaX * 0.35}px),
-              calc(-50% + ${deltaY * 0.35 - 130}px)
-            )
-            scale(0.85)
-            rotate(-10deg)`,
+              calc(-50% + ${deltaX * 0.4}px),
+              calc(-50% + ${deltaY * 0.4 - 100}px)
+            ) scale(.8)`,
             opacity: 1,
-          },
-          {
-            transform: `translate(
-              calc(-50% + ${deltaX * 0.75}px),
-              calc(-50% + ${deltaY * 0.75}px)
-            )
-            scale(0.5)
-            rotate(180deg)`,
-            opacity: 0.8,
           },
           {
             transform: `translate(
               calc(-50% + ${deltaX}px),
               calc(-50% + ${deltaY}px)
-            )
-            scale(0.15)
-            rotate(360deg)`,
+            ) scale(.1) rotate(360deg)`,
             opacity: 0,
           },
         ],
         {
-          duration: 1800,
-          easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+          duration: 1300,
+          easing:
+            "cubic-bezier(0.22,1,0.36,1)",
           fill: "forwards",
         }
       );
 
-      // Bounce keranjang
       setTimeout(() => {
         cartButton.animate(
           [
-            { transform: "scale(1)" },
             {
-              transform: "scale(1.18) rotate(-4deg)",
+              transform: "scale(1)",
             },
             {
-              transform: "scale(0.94) rotate(3deg)",
+              transform:
+                "scale(1.15) rotate(-4deg)",
             },
             {
-              transform: "scale(1.08) rotate(-2deg)",
+              transform:
+                "scale(.95) rotate(3deg)",
             },
-            { transform: "scale(1)" },
+            {
+              transform: "scale(1.06)",
+            },
+            {
+              transform: "scale(1)",
+            },
           ],
           {
-            duration: 600,
+            duration: 550,
             easing: "ease-out",
           }
         );
-      }, 1600);
-    }, 1700);
+      }, 900);
+    }, 600);
 
-    // Hapus elemen animasi
     setTimeout(() => {
       flyingCoffee.remove();
-    }, 3600);
+    }, 2300);
   };
 
-  // =========================================================
-  // DATA PRODUK
-  // =========================================================
-  const products = [
-    {
-      id: 1,
-      name: "Butterscotch",
-      category: "Signature",
-      description:
-        "Perpaduan kopi creamy dengan rasa manis yang lembut.",
-      price: 22000,
-      bg: "#DED0C1",
-    },
-    {
-      id: 2,
-      name: "Kopi Gula Aren",
-      category: "Best Seller",
-      description:
-        "Kopi dengan perpaduan espresso dan manisnya gula aren.",
-      price: 22000,
-      bg: "#CBB8A5",
-    },
-    {
-      id: 3,
-      name: "Americano",
-      category: "Kopi Hitam Murni",
-      description:
-        "Racikan khas Get-Here dengan karakter rasa yang seimbang.",
-      price: 18000,
-      bg: "#B8A18B",
-    },
-  ];
+  // =======================================================
+  // PRODUCT CARD
+  // =======================================================
+
+  const ProductCard = ({
+    product,
+    compact = false,
+  }: {
+    product: Product;
+    compact?: boolean;
+  }) => {
+    const [packaging, setPackaging] =
+      useState<Packaging>(
+        product.cupPrice != null
+          ? "CUP"
+          : "BOTTLE"
+      );
+
+    const selectedOriginalPrice =
+      getPackagingPrice(
+        product,
+        packaging
+      );
+
+    const finalPrice =
+      getFinalPrice(
+        product,
+        packaging
+      );
+
+    const handlePackagingChange = (
+      selectedPackaging: Packaging
+    ) => {
+      const selectedPrice =
+        getPackagingPrice(
+          product,
+          selectedPackaging
+        );
+
+      if (
+        selectedPackaging === "BOTTLE" &&
+        selectedPrice === null
+      ) {
+        return;
+      }
+
+      setPackaging(
+        selectedPackaging
+      );
+    };
+
+    const handleAddToCart = (
+      event: MouseEvent<HTMLButtonElement>
+    ) => {
+      if (
+        selectedOriginalPrice === null ||
+        finalPrice === null
+      ) {
+        return;
+      }
+
+      animateToCart(event);
+
+      /*
+       * CartContext yang sekarang menghitung
+       * originalPrice + finalPrice sendiri
+       * berdasarkan packaging.
+       *
+       * Gambar cart nanti diambil dari
+       * products yang sudah dimuat di page ini.
+       */
+      addToCart({
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        cupPrice: product.cupPrice,
+        bottlePrice:
+          product.bottlePrice,
+        discountPercent:
+          product.discountPercent,
+        packaging,
+      });
+    };
+
+    return (
+      <div
+        className={`product-card group flex h-full flex-col overflow-hidden rounded-[26px] border border-[#E7DED4] bg-white shadow-[0_8px_30px_rgba(45,30,20,0.06)] transition duration-300 hover:-translate-y-2 hover:shadow-[0_18px_45px_rgba(45,30,20,0.13)] ${
+          compact ? "w-full" : ""
+        }`}
+      >
+        {/* IMAGE */}
+
+        <div
+          data-product-image
+          className="relative flex h-[220px] shrink-0 items-center justify-center overflow-hidden bg-[#E4D5C4] sm:h-[245px]"
+        >
+          {product.image ? (
+            <img
+              src={product.image}
+              alt={product.name}
+              className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
+              onError={(event) => {
+                event.currentTarget.style.display =
+                  "none";
+
+                const fallback =
+                  event.currentTarget.parentElement?.querySelector(
+                    "[data-image-fallback]"
+                  ) as HTMLElement | null;
+
+                if (fallback) {
+                  fallback.style.display =
+                    "flex";
+                }
+              }}
+            />
+          ) : null}
+
+          <div
+            data-image-fallback
+            className={`absolute inset-0 items-center justify-center text-7xl ${
+              product.image
+                ? "hidden"
+                : "flex"
+            }`}
+          >
+            ☕
+          </div>
+
+          {product.discountPercent > 0 && (
+            <div className="absolute left-4 top-4 rounded-full bg-[#6D321B] px-3 py-1.5 text-xs font-bold text-white shadow-lg">
+              -{product.discountPercent}%
+            </div>
+          )}
+
+          <button
+            type="button"
+            className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-lg shadow-sm backdrop-blur transition hover:scale-110"
+          >
+            ♡
+          </button>
+
+        </div>
+
+        {/* INFO */}
+
+        <div className="flex flex-1 flex-col p-5 sm:p-6">
+          <div className="mb-2">
+            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#8A6348]">
+              {isNonCoffee(product)
+                ? "Non Coffee"
+                : "Coffee"}
+            </span>
+          </div>
+
+          <h3 className="text-xl font-bold tracking-tight text-[#261C17]">
+            {product.name}
+          </h3>
+
+          <p className="mt-2 min-h-[44px] text-sm leading-6 text-[#756B63]">
+            {product.description ||
+              "Minuman pilihan Get-Here untuk menemani setiap momen."}
+          </p>
+
+          {/* PACKAGING */}
+
+          <div className="mt-5">
+            <p className="mb-2 text-xs font-bold text-[#4D4037]">
+              Pilih Kemasan
+            </p>
+
+            <div className="grid grid-cols-2 gap-2">
+              {/* CUP */}
+
+              <button
+                type="button"
+                onClick={() =>
+                  handlePackagingChange(
+                    "CUP"
+                  )
+                }
+                disabled={
+                  product.cupPrice == null
+                }
+                className={`relative rounded-2xl border p-3 text-left transition ${
+                  packaging === "CUP"
+                    ? "border-[#40551F] bg-[#F2F5EA] shadow-sm"
+                    : "border-[#E2D8CD] bg-white hover:border-[#B7A999]"
+                } ${
+                  product.cupPrice == null
+                    ? "cursor-not-allowed opacity-40"
+                    : ""
+                }`}
+              >
+                {packaging === "CUP" &&
+                  product.cupPrice != null && (
+                    <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-[#40551F] text-[10px] font-bold text-white">
+                      ✓
+                    </span>
+                  )}
+
+                <div className="text-lg">
+                  🥤
+                </div>
+
+                <p className="mt-1 text-xs font-bold text-[#261C17]">
+                  Cup
+                </p>
+
+                <p className="mt-0.5 text-xs font-semibold text-[#6D321B]">
+                  {product.cupPrice != null
+                    ? `Rp${Math.round(
+                        product.cupPrice -
+                          (product.cupPrice *
+                            product.discountPercent) /
+                            100
+                      ).toLocaleString(
+                        "id-ID"
+                      )}`
+                    : "Tidak tersedia"}
+                </p>
+              </button>
+
+              {/* BOTTLE */}
+
+              <button
+                type="button"
+                onClick={() =>
+                  handlePackagingChange(
+                    "BOTTLE"
+                  )
+                }
+                disabled={
+                  product.bottlePrice == null
+                }
+                className={`relative rounded-2xl border p-3 text-left transition ${
+                  packaging === "BOTTLE"
+                    ? "border-[#40551F] bg-[#F2F5EA] shadow-sm"
+                    : "border-[#E2D8CD] bg-white hover:border-[#B7A999]"
+                } ${
+                  product.bottlePrice == null
+                    ? "cursor-not-allowed opacity-40"
+                    : ""
+                }`}
+              >
+                {packaging === "BOTTLE" &&
+                  product.bottlePrice != null && (
+                    <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-[#40551F] text-[10px] font-bold text-white">
+                      ✓
+                    </span>
+                  )}
+
+                <div className="text-lg">
+                  🧴
+                </div>
+
+                <p className="mt-1 text-xs font-bold text-[#261C17]">
+                  Bottle
+                </p>
+
+                <p className="mt-0.5 text-xs font-semibold text-[#6D321B]">
+                  {product.bottlePrice != null
+                    ? `Rp${Math.round(
+                        product.bottlePrice -
+                          (product.bottlePrice *
+                            product.discountPercent) /
+                            100
+                      ).toLocaleString(
+                        "id-ID"
+                      )}`
+                    : "Tidak tersedia"}
+                </p>
+              </button>
+            </div>
+          </div>
+
+          {/* PRICE */}
+
+          <div className="mt-auto pt-5">
+            {product.discountPercent > 0 &&
+              selectedOriginalPrice !==
+                null && (
+                <span className="block text-xs text-[#9A8B7D] line-through">
+                  Rp
+                  {selectedOriginalPrice.toLocaleString(
+                    "id-ID"
+                  )}
+                </span>
+              )}
+
+            <div className="mt-1 flex items-center justify-between gap-3">
+              <span className="text-lg font-extrabold text-[#261C17]">
+                {finalPrice !== null
+                  ? `Rp${finalPrice.toLocaleString(
+                      "id-ID"
+                    )}`
+                  : "N/A"}
+              </span>
+
+              <button
+                type="button"
+                onClick={
+                  handleAddToCart
+                }
+                disabled={
+                  finalPrice === null
+                }
+                className="shrink-0 rounded-full bg-[#40551F] px-5 py-2.5 text-sm font-semibold text-white transition hover:scale-105 hover:bg-[#334517] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
+              >
+                + Keranjang
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // =======================================================
+  // MENU FILTER
+  // =======================================================
+
+  type MenuFilter =
+    | "ALL"
+    | "COFFEE"
+    | "NON_COFFEE";
+
+  const [menuFilter, setMenuFilter] =
+    useState<MenuFilter>("ALL");
+
+  const filteredProducts =
+    menuFilter === "ALL"
+      ? products
+      : menuFilter === "COFFEE"
+      ? coffeeProducts
+      : nonCoffeeProducts;
+
+  // =======================================================
+  // HERO
+  // =======================================================
+
+  const heroProducts =
+    coffeeProducts.slice(0, 2);
+
+  // =======================================================
+  // RENDER
+  // =======================================================
 
   return (
-    <main className="min-h-screen bg-[#F6F2EC] text-[#211A16]">
-
+    <main className="min-h-screen overflow-x-hidden bg-[#F8F3EC] text-[#261C17]">
       {/* =====================================================
           NAVBAR
       ===================================================== */}
-      <nav className="border-b border-[#E5DED5] bg-[#F6F2EC]">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4 sm:px-6 sm:py-5">
 
-          {/* LOGO */}
-          <a
-            href="#"
-            className="shrink-0 text-lg font-bold tracking-tight sm:text-2xl"
-            onClick={() => setMobileMenuOpen(false)}
+      <header className="sticky top-0 z-40 border-b border-[#E7DED4] bg-[#F8F3EC]/95 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-[1400px] items-center justify-between px-5 py-4 sm:px-8">
+          <Link
+            href="/"
+            className="shrink-0"
+            onClick={() =>
+              setMobileMenuOpen(false)
+            }
           >
-            GET-HERE
-            <span className="ml-1 font-light">COFFEE</span>
-          </a>
+            <div className="text-[24px] font-black tracking-[-0.06em] text-[#233319]">
+              GetHere
+            </div>
 
-          {/* DESKTOP MENU */}
-          <div className="hidden items-center gap-8 text-sm lg:gap-10 md:flex">
+            <div className="-mt-1 text-[7px] font-semibold tracking-wide text-[#6C6259]">
+              Together, We Got You.
+            </div>
+          </Link>
+
+          <nav className="hidden items-center gap-8 text-sm font-medium lg:flex">
             <a
               href="#"
-              className="transition hover:text-[#8A6348]"
+              className="transition hover:text-[#6D321B]"
             >
               Home
             </a>
 
             <a
               href="#produk"
-              className="transition hover:text-[#8A6348]"
+              className="transition hover:text-[#6D321B]"
             >
-              Produk
+              Menu
             </a>
 
             <a
               href="#tentang"
-              className="transition hover:text-[#8A6348]"
+              className="transition hover:text-[#6D321B]"
             >
-              Tentang
+              About
             </a>
 
             <a
               href="#kontak"
-              className="transition hover:text-[#8A6348]"
+              className="transition hover:text-[#6D321B]"
             >
-              Kontak
+              Contact
             </a>
+          </nav>
 
+          <div className="flex items-center gap-2">
             <Link
               href="/tracking"
-              className="transition hover:opacity-70"
+              className="hidden rounded-full border border-[#D8C9BA] bg-white px-4 py-2 text-xs font-bold transition hover:border-[#40551F] hover:text-[#40551F] sm:block"
             >
               Lacak Pesanan
             </Link>
-          </div>
 
-          {/* RIGHT NAV */}
-          <div className="flex items-center gap-2">
-
-            {/* CART */}
             <button
               ref={cartButtonRef}
-              onClick={() => setCartOpen(true)}
-              className="shrink-0 rounded-full bg-[#211A16] px-3 py-2 text-xs text-white transition hover:scale-105 hover:bg-[#3A2D25] sm:px-5 sm:py-2.5 sm:text-sm"
+              type="button"
+              onClick={() =>
+                setCartOpen(true)
+              }
+              className="relative flex h-11 w-11 items-center justify-center rounded-full bg-[#40551F] text-xl text-white shadow-lg transition hover:scale-105"
             >
               🛒
-              <span className="ml-1 hidden sm:inline">
-                Keranjang
-              </span>{" "}
-              ({totalItems})
+
+              {totalItems > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#6D321B] px-1 text-[10px] font-bold text-white">
+                  {totalItems}
+                </span>
+              )}
             </button>
 
-            {/* MOBILE MENU BUTTON */}
             <button
+              type="button"
               onClick={() =>
-                setMobileMenuOpen(!mobileMenuOpen)
+                setMobileMenuOpen(
+                  !mobileMenuOpen
+                )
               }
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-[#D8CEC3] text-lg md:hidden"
-              aria-label="Toggle menu"
-              aria-expanded={mobileMenuOpen}
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-[#D8C9BA] bg-white lg:hidden"
             >
-              {mobileMenuOpen ? "×" : "☰"}
+              ☰
             </button>
-
           </div>
         </div>
 
-        {/* MOBILE MENU */}
         {mobileMenuOpen && (
-          <div className="border-t border-[#E5DED5] px-4 py-4 md:hidden">
-            <div className="flex flex-col gap-1">
-
+          <div className="border-t border-[#E7DED4] bg-[#F8F3EC] px-5 py-5 lg:hidden">
+            <div className="flex flex-col gap-4 text-sm font-semibold">
               <a
                 href="#"
-                onClick={() => setMobileMenuOpen(false)}
-                className="rounded-xl px-4 py-3 text-sm font-medium transition hover:bg-white"
+                onClick={() =>
+                  setMobileMenuOpen(false)
+                }
               >
                 Home
               </a>
 
               <a
                 href="#produk"
-                onClick={() => setMobileMenuOpen(false)}
-                className="rounded-xl px-4 py-3 text-sm font-medium transition hover:bg-white"
+                onClick={() =>
+                  setMobileMenuOpen(false)
+                }
               >
-                Produk
+                Menu
               </a>
 
               <a
                 href="#tentang"
-                onClick={() => setMobileMenuOpen(false)}
-                className="rounded-xl px-4 py-3 text-sm font-medium transition hover:bg-white"
+                onClick={() =>
+                  setMobileMenuOpen(false)
+                }
               >
-                Tentang
-              </a>
-
-              <a
-                href="#kontak"
-                onClick={() => setMobileMenuOpen(false)}
-                className="rounded-xl px-4 py-3 text-sm font-medium transition hover:bg-white"
-              >
-                Kontak
+                About
               </a>
 
               <Link
                 href="/tracking"
-                onClick={() => setMobileMenuOpen(false)}
-                className="rounded-xl px-4 py-3 text-sm font-medium transition hover:bg-white"
+                onClick={() =>
+                  setMobileMenuOpen(false)
+                }
               >
                 Lacak Pesanan
               </Link>
-
             </div>
           </div>
         )}
-      </nav>
-
+      </header>
 
       {/* =====================================================
           HERO
       ===================================================== */}
-      <section className="mx-auto grid max-w-7xl items-center gap-10 px-4 py-14 sm:px-6 sm:py-20 md:grid-cols-2 md:gap-16 md:py-28">
 
-        {/* HERO TEXT */}
-        <div>
-
-          <p className="mb-5 text-sm font-semibold uppercase tracking-[0.3em] text-[#8A6348]">
-            Specialty Coffee
-          </p>
-
-          <h1 className="max-w-xl text-4xl font-semibold leading-[1.05] tracking-tight sm:text-5xl md:text-7xl">
-            Coffee made for
-            <span className="block font-normal italic text-[#8A6348]">
-              your moment.
-            </span>
-          </h1>
-
-          <p className="mt-6 max-w-lg text-base leading-7 text-[#756B63] sm:mt-7 sm:text-lg sm:leading-8">
-            Temukan kopi pilihan Get-Here yang dibuat dari bahan
-            berkualitas untuk menemani setiap momen dalam harimu.
-          </p>
-
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:gap-4">
-
-            <a
-              href="#produk"
-              className="rounded-full bg-[#211A16] px-8 py-3.5 text-center font-medium text-white transition hover:bg-[#3A2D25]"
-            >
-              Jelajahi Kopi
-            </a>
-
-            <a
-              href="#tentang"
-              className="rounded-full border border-[#211A16] px-8 py-3.5 text-center font-medium transition hover:bg-[#211A16] hover:text-white"
-            >
-              Cerita Kami
-            </a>
-
-          </div>
-        </div>
-
-
-        {/* HERO IMAGE */}
-        <div className="flex justify-center">
-
-          <div className="relative flex h-[300px] w-full max-w-[480px] items-center justify-center overflow-hidden rounded-[32px] bg-[#D9C7B5] sm:h-[360px] sm:rounded-[40px] md:h-[420px]">
-
-            <div className="absolute -right-20 -top-20 h-60 w-60 rounded-full bg-[#B89B82] opacity-40" />
-
-            <div className="absolute -bottom-20 -left-20 h-60 w-60 rounded-full bg-[#8A6348] opacity-30" />
-
-            <div className="relative text-[90px] drop-shadow-2xl sm:text-[110px] md:text-[130px]">
-              ☕
-            </div>
-
-          </div>
-
-        </div>
-
-      </section>
-
-
-      {/* =====================================================
-          FEATURE
-      ===================================================== */}
-      <section className="border-y border-[#E5DED5] bg-[#EEE7DE]">
-
-        <div className="mx-auto grid max-w-7xl md:grid-cols-3">
-
-          {/* FEATURE 1 */}
-          <div className="border-b border-[#DDD3C8] px-6 py-7 text-center sm:px-8 sm:py-8 md:border-b-0 md:border-r">
-
-            <p className="text-2xl">☕</p>
-
-            <h3 className="mt-3 font-semibold">
-              Kopi Berkualitas
-            </h3>
-
-            <p className="mt-2 text-sm text-[#756B63]">
-              Biji kopi pilihan untuk rasa terbaik.
+      <section className="px-5 pb-14 pt-10 sm:px-8 sm:pb-20 sm:pt-16">
+        <div className="mx-auto grid max-w-[1400px] gap-8 lg:grid-cols-[1.05fr_.95fr] lg:items-center">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.3em] text-[#8A6348]">
+              GetHere Coffee
             </p>
 
-          </div>
+            <h1 className="mt-4 max-w-3xl text-5xl font-black leading-[0.95] tracking-[-0.04em] sm:text-7xl">
+              Good Coffee.
+              <br />
+              Good{" "}
+              <span className="italic text-[#6D321B]">
+                Moment.
+              </span>
+            </h1>
 
-
-          {/* FEATURE 2 */}
-          <div className="border-b border-[#DDD3C8] px-6 py-7 text-center sm:px-8 sm:py-8 md:border-b-0 md:border-r">
-
-            <p className="text-2xl">✦</p>
-
-            <h3 className="mt-3 font-semibold">
-              Fresh & Freshly Made
-            </h3>
-
-            <p className="mt-2 text-sm text-[#756B63]">
-              Dibuat dengan perhatian pada setiap detail.
+            <p className="mt-6 max-w-xl text-sm leading-7 text-[#756B63] sm:text-base">
+              Temukan minuman favoritmu,
+              pilih kemasan yang kamu suka,
+              lalu pesan dengan mudah
+              bersama GetHere.
             </p>
 
-          </div>
-
-
-          {/* FEATURE 3 */}
-          <div className="px-6 py-7 text-center sm:px-8 sm:py-8">
-
-            <p className="text-2xl">♡</p>
-
-            <h3 className="mt-3 font-semibold">
-              Dibuat dengan Hati
-            </h3>
-
-            <p className="mt-2 text-sm text-[#756B63]">
-              Kopi untuk menemani momen spesialmu.
-            </p>
-
-          </div>
-
-        </div>
-
-      </section>
-
-
-      {/* =====================================================
-          PRODUK
-      ===================================================== */}
-      <section
-        id="produk"
-        className="px-4 py-16 sm:px-6 sm:py-20 md:py-24"
-      >
-
-        <div className="mx-auto max-w-7xl">
-
-          {/* SECTION TITLE */}
-          <div className="mb-10 flex items-end justify-between sm:mb-12">
-
-            <div>
-
-              <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#8A6348]">
-                Our Coffee
-              </p>
-
-              <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl md:text-5xl">
-                Pilihan Favorit
-              </h2>
-
-            </div>
-
-            <a
-              href="#"
-              className="hidden text-sm font-medium underline underline-offset-4 md:block"
-            >
-              Lihat semua →
-            </a>
-
-          </div>
-
-
-          {/* PRODUCT GRID */}
-          <div className="grid gap-7 md:grid-cols-3">
-
-            {products.map((product) => (
-              <div
-                key={product.id}
-                className="product-card group overflow-hidden rounded-3xl bg-white shadow-sm transition duration-300 hover:-translate-y-2 hover:shadow-xl"
+            <div className="mt-7 flex flex-wrap gap-3">
+              <a
+                href="#produk"
+                className="rounded-full bg-[#40551F] px-7 py-3.5 text-sm font-bold text-white shadow-lg transition hover:-translate-y-0.5"
               >
+                Lihat Menu
+              </a>
 
-                {/* PRODUCT IMAGE */}
-                <div
-                  data-product-image
-                  style={{
-                    backgroundColor: product.bg,
-                  }}
-                  className="flex h-56 items-center justify-center text-7xl transition duration-300 group-hover:scale-[1.02] sm:h-64 sm:text-8xl"
-                >
-                  ☕
-                </div>
+              <Link
+                href="/tracking"
+                className="rounded-full border border-[#D8C9BA] bg-white px-7 py-3.5 text-sm font-bold"
+              >
+                Lacak Pesanan
+              </Link>
+            </div>
+          </div>
 
+          {/* BEST SELLER */}
 
-                {/* PRODUCT INFO */}
-                <div className="p-6 sm:p-7">
+              <div>
+                {/* BEST SELLER HEADER */}
 
-                  <p className="text-xs font-semibold uppercase tracking-widest text-[#9A8B7D]">
-                    {product.category}
-                  </p>
+                <div className="mb-5 flex items-end justify-between">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#8A6348]">
+                      GetHere Picks
+                    </p>
 
-                  <h3 className="mt-2 text-xl font-semibold sm:text-2xl">
-                    {product.name}
-                  </h3>
-
-                  <p className="mt-3 text-sm leading-6 text-[#756B63]">
-                    {product.description}
-                  </p>
-
-
-                  {/* PRICE + BUTTON */}
-                  <div className="mt-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-
-                    <span className="text-lg font-semibold">
-                      Rp{product.price.toLocaleString("id-ID")}
-                    </span>
-
-                    <button
-                      onClick={(event) => {
-                        animateToCart(event);
-
-                        addToCart({
-                          id: product.id,
-                          name: product.name,
-                          price: product.price,
-                        });
-                      }}
-                      className="w-full rounded-full bg-[#211A16] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#3A2D25] sm:w-auto"
-                    >
-                      + Keranjang
-                    </button>
-
+                    <h2 className="mt-1 text-2xl font-black tracking-tight text-[#261C17] sm:text-3xl">
+                      Best Seller
+                    </h2>
                   </div>
 
+                  <a
+                    href="#produk"
+                    className="text-xs font-bold text-[#40551F] transition hover:text-[#6D321B]"
+                  >
+                    Lihat Semua →
+                  </a>
                 </div>
 
-              </div>
-            ))}
+                {/* BEST SELLER PRODUCTS */}
 
+                <div className="grid grid-cols-2 gap-4">
+                  {heroProducts.length > 0 ? (
+                    heroProducts.map((product) => (
+                      <ProductCard
+                        key={product.id}
+                        product={product}
+                        compact
+                      />
+                    ))
+                  ) : (
+                    <div className="col-span-2 flex min-h-[300px] items-center justify-center rounded-[30px] bg-[#E4D5C4] text-7xl">
+                      ☕
+                    </div>
+                  )}
+            </div>
           </div>
-
         </div>
-
       </section>
 
+      {/* =====================================================
+          FEATURES
+      ===================================================== */}
+
+      <section className="px-5 pb-8 sm:px-8">
+        <div className="mx-auto grid max-w-[1400px] gap-4 md:grid-cols-3">
+          <div className="rounded-[25px] bg-white p-6 shadow-sm">
+            <div className="text-2xl">
+              ☕
+            </div>
+            <h3 className="mt-3 font-bold">
+              Coffee Pilihan
+            </h3>
+            <p className="mt-2 text-xs leading-6 text-[#756B63]">
+              Pilihan coffee favorit
+              untuk menemani aktivitasmu.
+            </p>
+          </div>
+
+          <div className="rounded-[25px] bg-white p-6 shadow-sm">
+            <div className="text-2xl">
+              🧴
+            </div>
+            <h3 className="mt-3 font-bold">
+              Cup & Bottle
+            </h3>
+            <p className="mt-2 text-xs leading-6 text-[#756B63]">
+              Bebas memilih kemasan
+              sesuai kebutuhanmu.
+            </p>
+          </div>
+
+          <div className="rounded-[25px] bg-white p-6 shadow-sm">
+            <div className="text-2xl">
+              ♡
+            </div>
+            <h3 className="mt-3 font-bold">
+              Banyak Varian
+            </h3>
+            <p className="mt-2 text-xs leading-6 text-[#756B63]">
+              Coffee dan non coffee
+              favoritmu.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* =====================================================
+          MENU
+      ===================================================== */}
+
+      <section
+        id="produk"
+        className="px-5 py-16 sm:px-8 sm:py-20"
+      >
+        <div className="mx-auto max-w-[1400px]">
+          <div className="mb-8">
+            <p className="text-xs font-bold uppercase tracking-[0.3em] text-[#8A6348]">
+              Our Menu
+            </p>
+
+            <div className="mt-2 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+              <div>
+                <h2 className="text-4xl font-black tracking-tight sm:text-5xl">
+                  Menu Favorit
+                </h2>
+
+                <p className="mt-3 max-w-xl text-sm leading-6 text-[#756B63] sm:text-base">
+                  Temukan minuman favoritmu
+                  dari berbagai pilihan
+                  coffee dan non coffee
+                  GetHere.
+                </p>
+              </div>
+
+              <div className="hidden rounded-full bg-[#E9DDCE] px-5 py-2.5 text-xs font-bold text-[#6D321B] sm:block">
+                {filteredProducts.length}{" "}
+                menu tersedia
+              </div>
+            </div>
+          </div>
+
+          {/* FILTER */}
+
+          <div className="mb-10 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                setMenuFilter("ALL")
+              }
+              className={`rounded-full px-6 py-3 text-sm font-bold transition ${
+                menuFilter === "ALL"
+                  ? "bg-[#40551F] text-white shadow-lg"
+                  : "border border-[#D8C9BA] bg-white text-[#5F5147]"
+              }`}
+            >
+              Semua
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                setMenuFilter("COFFEE")
+              }
+              className={`rounded-full px-6 py-3 text-sm font-bold transition ${
+                menuFilter === "COFFEE"
+                  ? "bg-[#40551F] text-white shadow-lg"
+                  : "border border-[#D8C9BA] bg-white text-[#5F5147]"
+              }`}
+            >
+              ☕ Coffee
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                setMenuFilter("NON_COFFEE")
+              }
+              className={`rounded-full px-6 py-3 text-sm font-bold transition ${
+                menuFilter ===
+                "NON_COFFEE"
+                  ? "bg-[#40551F] text-white shadow-lg"
+                  : "border border-[#D8C9BA] bg-white text-[#5F5147]"
+              }`}
+            >
+              🥤 Non Coffee
+            </button>
+          </div>
+
+          {/* LOADING */}
+
+          {productsLoading ? (
+            <div className="rounded-[30px] bg-white py-20 text-center shadow-sm">
+              <div className="mb-4 animate-pulse text-5xl">
+                ☕
+              </div>
+
+              <p className="text-sm text-[#756B63]">
+                Memuat menu GetHere...
+              </p>
+            </div>
+          ) : products.length ===
+            0 ? (
+            <div className="rounded-[30px] bg-white py-20 text-center shadow-sm">
+              <div className="mb-4 text-5xl">
+                🥤
+              </div>
+
+              <h3 className="font-bold">
+                Belum ada produk tersedia
+              </h3>
+
+              <p className="mt-2 text-sm text-[#756B63]">
+                Produk yang ditambahkan
+                dari dashboard admin
+                akan muncul di sini.
+              </p>
+            </div>
+          ) : filteredProducts.length ===
+            0 ? (
+            <div className="rounded-[30px] bg-white py-20 text-center shadow-sm">
+              <div className="mb-4 text-5xl">
+                🔍
+              </div>
+
+              <h3 className="font-bold">
+                Tidak ada produk
+              </h3>
+
+              <p className="mt-2 text-sm text-[#756B63]">
+                Belum ada produk dalam
+                kategori ini.
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredProducts.map(
+                (product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                  />
+                )
+              )}
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* =====================================================
           ABOUT
       ===================================================== */}
+
       <section
         id="tentang"
-        className="bg-[#211A16] px-4 py-20 text-white sm:px-6 sm:py-24"
+        className="bg-[#2D211B] px-5 py-20 text-white sm:px-8"
       >
+        <div className="mx-auto grid max-w-[1200px] gap-10 md:grid-cols-2 md:items-center">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.3em] text-[#CDB9A3]">
+              About GetHere
+            </p>
 
-        <div className="mx-auto max-w-4xl text-center">
+            <h2 className="mt-4 text-4xl font-black leading-tight sm:text-5xl">
+              Good Coffee.
+              <br />
 
-          <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#BDA994]">
-            About Get-Here
-          </p>
+              <span className="font-normal italic text-[#DDBD99]">
+                Good Moment.
+              </span>
+            </h2>
+          </div>
 
-          <h2 className="mt-5 text-3xl font-semibold leading-tight sm:text-4xl md:text-5xl">
-            Bukan sekadar kopi.
-            <br />
+          <div>
+            <p className="text-sm leading-7 text-[#C8BDB4] sm:text-base">
+              GetHere hadir untuk
+              menghadirkan minuman yang
+              sederhana, berkualitas,
+              dan cocok untuk menemani
+              cerita sehari-hari.
+            </p>
 
-            <span className="font-normal italic text-[#CDB9A3]">
-              Ini tentang momen.
-            </span>
-          </h2>
-
-          <p className="mx-auto mt-7 max-w-2xl text-sm leading-7 text-[#B8ADA4] sm:text-base sm:leading-8">
-            Get-Here Coffee hadir untuk menghadirkan kopi yang
-            sederhana, berkualitas, dan cocok untuk menemani cerita
-            sehari-hari.
-          </p>
-
+            <p className="mt-5 text-sm leading-7 text-[#C8BDB4] sm:text-base">
+              Mulai dari coffee favorit
+              sampai berbagai pilihan
+              non coffee, semuanya
+              dibuat untuk memberikan
+              pengalaman minum yang
+              nyaman dan menyenangkan.
+            </p>
+          </div>
         </div>
-
       </section>
-
 
       {/* =====================================================
           FOOTER
       ===================================================== */}
+
       <footer
         id="kontak"
-        className="bg-[#211A16] px-4 pb-8 text-center text-white sm:px-6 sm:pb-10"
+        className="bg-[#211914] px-5 py-10 text-white sm:px-8"
       >
+        <div className="mx-auto flex max-w-[1400px] flex-col justify-between gap-5 sm:flex-row sm:items-center">
+          <div>
+            <div className="text-2xl font-black">
+              GetHere
+            </div>
 
-        <div className="border-t border-[#443932] pt-10">
+            <p className="mt-1 text-xs text-[#9D9188]">
+              Together, We Got You.
+            </p>
+          </div>
 
-          <h3 className="text-xl font-semibold">
-            GET-HERE COFFEE
-          </h3>
-
-          <p className="mt-2 text-sm text-[#9D9188]">
-            Good Coffee. Good Moment.
-          </p>
-
-          <p className="mt-8 text-xs text-[#6F625A]">
-            © 2026 Get-Here Coffee. All rights reserved.
-          </p>
-
+          <div className="text-xs text-[#756B63]">
+            © 2026 Get-Here Coffee.
+            All rights reserved.
+          </div>
         </div>
-
       </footer>
-
 
       {/* =====================================================
           CART OVERLAY
       ===================================================== */}
+
       {cartOpen && (
         <div
-          onClick={() => setCartOpen(false)}
+          onClick={() =>
+            setCartOpen(false)
+          }
           className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
         />
       )}
 
-
       {/* =====================================================
           CART SIDEBAR
       ===================================================== */}
-      <div
-        className={`fixed right-0 top-0 z-50 h-full w-full max-w-md transform bg-[#F6F2EC] shadow-2xl transition-transform duration-300 ${
+
+      <aside
+        className={`fixed right-0 top-0 z-50 flex h-full w-full max-w-md flex-col bg-[#F8F3EC] shadow-2xl transition-transform duration-300 ${
           cartOpen
             ? "translate-x-0"
             : "translate-x-full"
         }`}
       >
+        {/* HEADER */}
 
-        {/* CART HEADER */}
-        <div className="flex items-center justify-between border-b border-[#D8CEC3] p-4 sm:p-6">
-
+        <div className="flex items-center justify-between border-b border-[#DED2C6] p-5">
           <div>
-            <h2 className="text-xl font-bold sm:text-2xl">
-              Keranjang
+            <h2 className="text-2xl font-black">
+              Keranjang Kamu
             </h2>
 
-            <p className="text-xs text-[#6F6259] sm:text-sm">
-              {totalItems} item dalam keranjang
+            <p className="mt-1 text-xs text-[#756B63]">
+              {totalItems} item dalam
+              keranjang
             </p>
           </div>
 
           <button
-            onClick={() => setCartOpen(false)}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-xl transition hover:bg-[#211A16] hover:text-white"
-            aria-label="Tutup keranjang"
+            type="button"
+            onClick={() =>
+              setCartOpen(false)
+            }
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-xl transition hover:bg-[#2D211B] hover:text-white"
           >
             ×
           </button>
-
         </div>
 
+        {/* CART ITEMS */}
 
-        {/* CART LIST */}
-        <div className="h-[calc(100%-190px)] overflow-y-auto p-4 sm:p-6">
-
+        <div className="flex-1 overflow-y-auto p-5">
           {cart.length === 0 ? (
-
-            /* EMPTY CART */
             <div className="flex h-full flex-col items-center justify-center text-center">
-
-              <div className="mb-4 text-6xl">
+              <div className="mb-5 text-6xl">
                 🛒
               </div>
 
-              <h3 className="text-xl font-semibold">
+              <h3 className="text-xl font-bold">
                 Keranjang masih kosong
               </h3>
 
-              <p className="mt-2 text-sm text-[#6F6259]">
-                Yuk pilih kopi favorit kamu.
+              <p className="mt-2 text-sm text-[#756B63]">
+                Yuk pilih minuman
+                favorit kamu.
               </p>
 
               <button
-                onClick={() => setCartOpen(false)}
-                className="mt-6 rounded-full bg-[#211A16] px-6 py-3 text-sm font-medium text-white transition hover:bg-[#8A6348]"
+                type="button"
+                onClick={() =>
+                  setCartOpen(false)
+                }
+                className="mt-6 rounded-full bg-[#40551F] px-7 py-3 text-sm font-bold text-white"
               >
-                Pilih Kopi
+                Pilih Menu
               </button>
-
             </div>
-
           ) : (
-
-            /* PRODUCT LIST */
             <div className="space-y-4">
+              {cart.map((item) => {
+                /*
+                 * CartContext belum menyimpan gambar.
+                 * Jadi gambar dicari berdasarkan product ID.
+                 */
 
-              {cart.map((item) => (
+                const cartProduct =
+                  products.find(
+                    (product) =>
+                      product.id ===
+                      item.id
+                  );
 
-                <div
-                  key={item.id}
-                  className="rounded-2xl bg-white p-4 shadow-sm"
-                >
+                const cartImage = cartProduct?.image;
 
-                  {/* ITEM INFO */}
-                  <div className="flex items-start justify-between gap-4">
+                return (
+                  <div
+                    key={`${item.id}-${item.packaging}`}
+                    className="rounded-2xl border border-[#E6DCD1] bg-white p-4 shadow-sm"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <h3 className="font-bold">
+                          {item.name}
+                        </h3>
 
-                    <div className="min-w-0">
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <span className="rounded-full bg-[#EFE5D9] px-2.5 py-1 text-[10px] font-bold uppercase text-[#6D321B]">
+                            {item.packaging ===
+                            "BOTTLE"
+                              ? "🧴 Bottle"
+                              : "🥤 Cup"}
+                          </span>
 
-                      <h3 className="font-semibold">
-                        {item.name}
-                      </h3>
+                          {item.discountPercent >
+                            0 && (
+                            <span className="rounded-full bg-[#E8F0D9] px-2.5 py-1 text-[10px] font-bold text-[#40551F]">
+                              -{" "}
+                              {
+                                item.discountPercent
+                              }
+                              %
+                            </span>
+                          )}
+                        </div>
+                      </div>
 
-                      <p className="mt-1 text-sm text-[#8A6348]">
-                        Rp{item.price.toLocaleString("id-ID")}
-                      </p>
+                      {/* CART IMAGE */}
 
+                      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-[#E4D5C4]">
+                        {cartImage ? (
+                          <img
+                            src={cartImage}
+                            alt={item.name}
+                            className="h-full w-full object-cover"
+                            onError={(
+                              event
+                            ) => {
+                              event.currentTarget.style.display =
+                                "none";
+
+                              const fallback =
+                                event
+                                  .currentTarget
+                                  .parentElement?.querySelector(
+                                    "[data-cart-image-fallback]"
+                                  ) as HTMLElement | null;
+
+                              if (fallback) {
+                                fallback.style.display =
+                                  "flex";
+                              }
+                            }}
+                          />
+                        ) : null}
+
+                        <div
+                          data-cart-image-fallback
+                          className={`h-full w-full items-center justify-center text-3xl ${
+                            cartImage
+                              ? "hidden"
+                              : "flex"
+                          }`}
+                        >
+                          {item.packaging ===
+                          "BOTTLE"
+                            ? "🧴"
+                            : "🥤"}
+                        </div>
+                      </div>
                     </div>
 
-                    <span className="shrink-0 text-2xl">
-                      ☕
-                    </span>
+                    {/* PRICE */}
 
-                  </div>
-
-
-                  {/* QUANTITY */}
-                  <div className="mt-4 flex items-center justify-between gap-4">
-
-                    <div className="flex items-center gap-3">
-
-                      <button
-                        onClick={() =>
-                          decreaseQuantity(item.id)
-                        }
-                        className="flex h-8 w-8 items-center justify-center rounded-full bg-[#F6F2EC] font-bold transition hover:bg-[#211A16] hover:text-white"
-                      >
-                        −
-                      </button>
-
-                      <span className="w-5 text-center font-semibold">
-                        {item.quantity}
-                      </span>
-
-                      <button
-                        onClick={() =>
-                          increaseQuantity(item.id)
-                        }
-                        className="flex h-8 w-8 items-center justify-center rounded-full bg-[#F6F2EC] font-bold transition hover:bg-[#211A16] hover:text-white"
-                      >
-                        +
-                      </button>
-
-                    </div>
-
-                    <p className="text-sm font-semibold sm:text-base">
-                      Rp
-                      {(item.price * item.quantity).toLocaleString(
-                        "id-ID"
+                    <div className="mt-3">
+                      {item.discountPercent >
+                        0 && (
+                        <p className="text-xs text-[#9A8B7D] line-through">
+                          Rp
+                          {item.originalPrice.toLocaleString(
+                            "id-ID"
+                          )}
+                        </p>
                       )}
-                    </p>
 
+                      <p className="mt-1 text-sm font-bold text-[#8A6348]">
+                        Rp
+                        {item.finalPrice.toLocaleString(
+                          "id-ID"
+                        )}
+                      </p>
+                    </div>
+
+                    {/* QUANTITY */}
+
+                    <div className="mt-4 flex items-center justify-between">
+                      <div className="flex items-center gap-2 rounded-full border border-[#E0D5CA] bg-[#FAF7F3] p-1">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            decreaseQuantity(
+                              item.id,
+                              item.packaging
+                            )
+                          }
+                          className="flex h-8 w-8 items-center justify-center rounded-full bg-white font-bold"
+                        >
+                          −
+                        </button>
+
+                        <span className="min-w-6 text-center text-sm font-bold">
+                          {item.quantity}
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            increaseQuantity(
+                              item.id,
+                              item.packaging
+                            )
+                          }
+                          className="flex h-8 w-8 items-center justify-center rounded-full bg-[#40551F] font-bold text-white"
+                        >
+                          +
+                        </button>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          removeFromCart(
+                            item.id,
+                            item.packaging
+                          )
+                        }
+                        className="text-xs font-semibold text-red-500 transition hover:text-red-700"
+                      >
+                        Hapus item
+                      </button>
+                    </div>
                   </div>
-
-                </div>
-
-              ))}
-
+                );
+              })}
             </div>
-
           )}
-
         </div>
 
+        {/* CART FOOTER */}
 
-        {/* CART BOTTOM */}
         {cart.length > 0 && (
-
-          <div className="absolute bottom-0 left-0 right-0 border-t border-[#D8CEC3] bg-[#F6F2EC] p-4 sm:p-6">
-
-            <div className="mb-4 flex items-center justify-between gap-4">
-
-              <span className="text-sm text-[#6F6259]">
+          <div className="border-t border-[#DED2C6] bg-[#F8F3EC] p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <span className="text-sm text-[#756B63]">
                 Total
               </span>
 
-              <span className="text-lg font-bold sm:text-xl">
-                Rp{totalPrice.toLocaleString("id-ID")}
+              <span className="text-xl font-black">
+                Rp
+                {totalPrice.toLocaleString(
+                  "id-ID"
+                )}
               </span>
-
             </div>
 
             <Link
               href="/checkout"
-              onClick={() => setCartOpen(false)}
-              className="block w-full rounded-full bg-[#211A16] py-3.5 text-center font-semibold text-white transition hover:bg-[#8A6348] sm:py-4"
+              onClick={() =>
+                setCartOpen(false)
+              }
+              className="block w-full rounded-full bg-[#40551F] py-3.5 text-center text-sm font-bold text-white transition hover:bg-[#334517]"
             >
-              Checkout →
+              Lanjut Checkout
             </Link>
-
           </div>
-
         )}
-
-      </div>
-
+      </aside>
     </main>
   );
 }

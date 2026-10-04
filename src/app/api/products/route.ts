@@ -16,6 +16,51 @@ function isAdmin(request: NextRequest) {
 }
 
 // ==========================================
+// VALIDASI HARGA
+// ==========================================
+function parsePrice(value: unknown) {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+
+  const price = Number(value);
+
+  if (!Number.isInteger(price) || price < 0) {
+    return null;
+  }
+
+  return price;
+}
+
+// ==========================================
+// VALIDASI DISKON
+// ==========================================
+function parseDiscount(value: unknown) {
+  const discount = Number(value ?? 0);
+
+  if (
+    !Number.isInteger(discount) ||
+    discount < 0 ||
+    discount > 100
+  ) {
+    return null;
+  }
+
+  return discount;
+}
+
+// ==========================================
+// VALIDASI CATEGORY
+// ==========================================
+function parseCategory(value: unknown) {
+  if (value === "NON_COFFEE") {
+    return "NON_COFFEE" as const;
+  }
+
+  return "COFFEE" as const;
+}
+
+// ==========================================
 // GET SEMUA PRODUK
 // PUBLIC
 // ==========================================
@@ -39,7 +84,9 @@ export async function GET() {
         success: false,
         message: "Gagal mengambil data produk.",
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
   }
 }
@@ -49,87 +96,192 @@ export async function GET() {
 // HANYA ADMIN
 // ==========================================
 export async function POST(request: NextRequest) {
+  // ========================================
+  // CEK ADMIN
+  // ========================================
   if (!isAdmin(request)) {
     return NextResponse.json(
       {
         success: false,
         message: "Unauthorized.",
       },
-      { status: 401 }
+      {
+        status: 401,
+      }
     );
   }
 
   try {
+    // ======================================
+    // AMBIL BODY
+    // ======================================
     const body = await request.json();
 
     const {
       name,
       description,
       image,
+
+      // CATEGORY
+      category,
+
+      // HARGA
       price,
+      cupPrice,
+      bottlePrice,
+
+      // DISKON
       discountPercent,
+
+      // STATUS
       isAvailable,
     } = body;
 
-    // =========================
-    // VALIDASI
-    // =========================
-    if (!name || typeof name !== "string") {
+    // ======================================
+    // VALIDASI NAMA
+    // ======================================
+    if (
+      !name ||
+      typeof name !== "string" ||
+      !name.trim()
+    ) {
       return NextResponse.json(
         {
           success: false,
           message: "Nama produk wajib diisi.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
+    // ======================================
+    // VALIDASI HARGA
+    // ======================================
+    const parsedCupPrice = parsePrice(cupPrice);
+    const parsedBottlePrice = parsePrice(bottlePrice);
+    const parsedOldPrice = parsePrice(price);
+
+    // Jika cupPrice tidak ada,
+    // gunakan price lama
+    const finalCupPrice =
+      parsedCupPrice !== null
+        ? parsedCupPrice
+        : parsedOldPrice;
+
+    // Jika bottlePrice tidak ada,
+    // gunakan price lama
+    const finalBottlePrice =
+      parsedBottlePrice !== null
+        ? parsedBottlePrice
+        : parsedOldPrice;
+
+    // ======================================
+    // HARGA WAJIB VALID
+    // ======================================
     if (
-      price === undefined ||
-      !Number.isInteger(Number(price)) ||
-      Number(price) < 0
+      finalCupPrice === null ||
+      finalBottlePrice === null
     ) {
       return NextResponse.json(
         {
           success: false,
-          message: "Harga produk tidak valid.",
+          message:
+            "Harga Cup dan harga Bottle wajib diisi dengan angka yang valid.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
-    const discount = Number(discountPercent ?? 0);
+    // ======================================
+    // VALIDASI DISKON
+    // ======================================
+    const discount = parseDiscount(discountPercent);
 
-    if (
-      !Number.isInteger(discount) ||
-      discount < 0 ||
-      discount > 100
-    ) {
+    if (discount === null) {
       return NextResponse.json(
         {
           success: false,
-          message: "Diskon harus berada di antara 0 sampai 100 persen.",
+          message:
+            "Diskon harus berada di antara 0 sampai 100 persen.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
-    // =========================
-    // BUAT PRODUK
-    // =========================
+    // ======================================
+    // CATEGORY
+    // ======================================
+    const finalCategory = parseCategory(category);
+
+    // ======================================
+    // CREATE PRODUCT
+    // ======================================
     const product = await prisma.product.create({
       data: {
+        // ====================================
+        // INFORMASI PRODUK
+        // ====================================
         name: name.trim(),
+
         description:
           typeof description === "string"
             ? description.trim() || null
             : null,
+
+        // ====================================
+        // GAMBAR UTAMA
+        // ====================================
         image:
           typeof image === "string"
             ? image.trim() || null
             : null,
-        price: Number(price),
+
+        // ====================================
+        // GAMBAR CUP
+        // ====================================
+        cupImage:
+          typeof cupImage === "string"
+            ? cupImage.trim() || null
+            : null,
+
+        // ====================================
+        // GAMBAR BOTTLE
+        // ====================================
+        bottleImage:
+          typeof bottleImage === "string"
+            ? bottleImage.trim() || null
+            : null,
+
+        // ====================================
+        // CATEGORY
+        // ====================================
+        category: finalCategory,
+
+        // ====================================
+        // HARGA
+        // ====================================
+
+        // Field lama untuk kompatibilitas
+        price: finalCupPrice,
+
+        cupPrice: finalCupPrice,
+
+        bottlePrice: finalBottlePrice,
+
+        // ====================================
+        // DISKON
+        // ====================================
         discountPercent: discount,
+
+        // ====================================
+        // KETERSEDIAAN
+        // ====================================
         isAvailable:
           typeof isAvailable === "boolean"
             ? isAvailable
@@ -137,276 +289,33 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // ======================================
+    // RESPONSE
+    // ======================================
     return NextResponse.json(
       {
         success: true,
         message: "Produk berhasil ditambahkan.",
         product,
       },
-      { status: 201 }
+      {
+        status: 201,
+      }
     );
   } catch (error) {
-    console.error("CREATE PRODUCT ERROR:", error);
+    console.error(
+      "CREATE PRODUCT ERROR:",
+      error
+    );
 
     return NextResponse.json(
       {
         success: false,
         message: "Gagal menambahkan produk.",
       },
-      { status: 500 }
-    );
-  }
-}
-
-// ==========================================
-// PATCH EDIT PRODUK
-// HANYA ADMIN
-// ==========================================
-export async function PATCH(request: NextRequest) {
-  if (!isAdmin(request)) {
-    return NextResponse.json(
       {
-        success: false,
-        message: "Unauthorized.",
-      },
-      { status: 401 }
-    );
-  }
-
-  try {
-    const body = await request.json();
-
-    const {
-      id,
-      name,
-      description,
-      image,
-      price,
-      discountPercent,
-      isAvailable,
-    } = body;
-
-    // =========================
-    // VALIDASI ID
-    // =========================
-    const productId = Number(id);
-
-    if (!Number.isInteger(productId) || productId <= 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "ID produk tidak valid.",
-        },
-        { status: 400 }
-      );
-    }
-
-    // =========================
-    // CEK PRODUK
-    // =========================
-    const existingProduct = await prisma.product.findUnique({
-      where: {
-        id: productId,
-      },
-    });
-
-    if (!existingProduct) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Produk tidak ditemukan.",
-        },
-        { status: 404 }
-      );
-    }
-
-    // =========================
-    // DATA YANG AKAN DIUPDATE
-    // =========================
-    const updateData: {
-      name?: string;
-      description?: string | null;
-      image?: string | null;
-      price?: number;
-      discountPercent?: number;
-      isAvailable?: boolean;
-    } = {};
-
-    if (name !== undefined) {
-      if (typeof name !== "string" || !name.trim()) {
-        return NextResponse.json(
-          {
-            success: false,
-            message: "Nama produk tidak valid.",
-          },
-          { status: 400 }
-        );
+        status: 500,
       }
-
-      updateData.name = name.trim();
-    }
-
-    if (description !== undefined) {
-      updateData.description =
-        typeof description === "string"
-          ? description.trim() || null
-          : null;
-    }
-
-    if (image !== undefined) {
-      updateData.image =
-        typeof image === "string"
-          ? image.trim() || null
-          : null;
-    }
-
-    if (price !== undefined) {
-      const parsedPrice = Number(price);
-
-      if (
-        !Number.isInteger(parsedPrice) ||
-        parsedPrice < 0
-      ) {
-        return NextResponse.json(
-          {
-            success: false,
-            message: "Harga produk tidak valid.",
-          },
-          { status: 400 }
-        );
-      }
-
-      updateData.price = parsedPrice;
-    }
-
-    if (discountPercent !== undefined) {
-      const discount = Number(discountPercent);
-
-      if (
-        !Number.isInteger(discount) ||
-        discount < 0 ||
-        discount > 100
-      ) {
-        return NextResponse.json(
-          {
-            success: false,
-            message: "Diskon harus berada di antara 0 sampai 100 persen.",
-          },
-          { status: 400 }
-        );
-      }
-
-      updateData.discountPercent = discount;
-    }
-
-    if (isAvailable !== undefined) {
-      if (typeof isAvailable !== "boolean") {
-        return NextResponse.json(
-          {
-            success: false,
-            message: "Status ketersediaan tidak valid.",
-          },
-          { status: 400 }
-        );
-      }
-
-      updateData.isAvailable = isAvailable;
-    }
-
-    // =========================
-    // UPDATE PRODUK
-    // =========================
-    const product = await prisma.product.update({
-      where: {
-        id: productId,
-      },
-      data: updateData,
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: "Produk berhasil diperbarui.",
-      product,
-    });
-  } catch (error) {
-    console.error("UPDATE PRODUCT ERROR:", error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Gagal memperbarui produk.",
-      },
-      { status: 500 }
-    );
-  }
-}
-
-// ==========================================
-// DELETE PRODUK
-// HANYA ADMIN
-// ==========================================
-export async function DELETE(request: NextRequest) {
-  if (!isAdmin(request)) {
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Unauthorized.",
-      },
-      { status: 401 }
-    );
-  }
-
-  try {
-    const { searchParams } = new URL(request.url);
-
-    const id = searchParams.get("id");
-    const productId = Number(id);
-
-    if (!Number.isInteger(productId) || productId <= 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "ID produk tidak valid.",
-        },
-        { status: 400 }
-      );
-    }
-
-    const existingProduct = await prisma.product.findUnique({
-      where: {
-        id: productId,
-      },
-    });
-
-    if (!existingProduct) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Produk tidak ditemukan.",
-        },
-        { status: 404 }
-      );
-    }
-
-    await prisma.product.delete({
-      where: {
-        id: productId,
-      },
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: "Produk berhasil dihapus.",
-    });
-  } catch (error) {
-    console.error("DELETE PRODUCT ERROR:", error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Gagal menghapus produk.",
-      },
-      { status: 500 }
     );
   }
 }

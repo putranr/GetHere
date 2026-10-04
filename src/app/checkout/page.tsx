@@ -27,8 +27,28 @@ export default function CheckoutPage() {
     increaseQuantity,
     decreaseQuantity,
     totalPrice,
-    clearCart,
   } = useCart();
+
+  // ==========================================
+  // PERHITUNGAN HARGA
+  // ==========================================
+
+  // Total berdasarkan harga normal sebelum diskon
+  const subtotalBeforeDiscount = cart.reduce(
+    (total, item) =>
+      total +
+      (item.originalPrice ?? item.price) * item.quantity,
+    0
+  );
+
+  // Total uang yang dihemat dari semua produk
+  const totalDiscount = cart.reduce(
+    (total, item) =>
+      total +
+      ((item.originalPrice ?? item.price) - item.price) *
+        item.quantity,
+    0
+  );
 
   const [customerName, setCustomerName] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
@@ -37,9 +57,9 @@ export default function CheckoutPage() {
 
   const [loading, setLoading] = useState(false);
 
-  // =========================
+  // ==========================================
   // PROSES CHECKOUT
-  // =========================
+  // ==========================================
   const handleCheckout = async () => {
     if (!customerName || !whatsapp || !address) {
       alert("Nama, WhatsApp, dan alamat wajib diisi.");
@@ -54,9 +74,9 @@ export default function CheckoutPage() {
     try {
       setLoading(true);
 
-      // =========================
+      // ==========================================
       // 1. BUAT ORDER
-      // =========================
+      // ==========================================
       const orderResponse = await fetch("/api/orders", {
         method: "POST",
         headers: {
@@ -84,7 +104,10 @@ export default function CheckoutPage() {
       try {
         orderData = JSON.parse(orderText);
       } catch {
-        console.error("Response order bukan JSON:", orderText);
+        console.error(
+          "Response order bukan JSON:",
+          orderText
+        );
 
         alert(
           `Server error (${orderResponse.status}). Cek terminal npm run dev.`
@@ -95,37 +118,49 @@ export default function CheckoutPage() {
 
       if (!orderResponse.ok || !orderData.success) {
         alert(
-          orderData.message || "Gagal membuat order."
+          orderData.message ||
+            "Gagal membuat order."
         );
 
         return;
       }
 
-      console.log("ORDER BERHASIL:", orderData);
+      console.log(
+        "ORDER BERHASIL:",
+        orderData
+      );
 
       const orderId = orderData.order.id;
 
-      console.log("ORDER ID:", orderId);
+      console.log(
+        "ORDER ID:",
+        orderId
+      );
 
-      // =========================
+      // ==========================================
       // 2. BUAT TRANSAKSI MIDTRANS
-      // =========================
-      const paymentResponse = await fetch("/api/payments", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          orderId,
-        }),
-      });
+      // ==========================================
+      const paymentResponse = await fetch(
+        "/api/payments",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            orderId,
+          }),
+        }
+      );
 
-      const paymentText = await paymentResponse.text();
+      const paymentText =
+        await paymentResponse.text();
 
       let paymentData;
 
       try {
-        paymentData = JSON.parse(paymentText);
+        paymentData =
+          JSON.parse(paymentText);
       } catch {
         console.error(
           "Response payment bukan JSON:",
@@ -139,7 +174,10 @@ export default function CheckoutPage() {
         return;
       }
 
-      if (!paymentResponse.ok || !paymentData.success) {
+      if (
+        !paymentResponse.ok ||
+        !paymentData.success
+      ) {
         console.error(
           "PAYMENT ERROR:",
           paymentData
@@ -158,9 +196,9 @@ export default function CheckoutPage() {
         paymentData.token
       );
 
-      // =========================
+      // ==========================================
       // 3. CEK SNAP
-      // =========================
+      // ==========================================
       if (!window.snap) {
         alert(
           "Midtrans Snap belum siap. Silakan refresh halaman dan coba lagi."
@@ -169,55 +207,59 @@ export default function CheckoutPage() {
         return;
       }
 
-      // =========================
+      // ==========================================
       // 4. BUKA MIDTRANS
-      // =========================
-      window.snap.pay(paymentData.token, {
-        onSuccess: (result) => {
-          console.log(
-            "PEMBAYARAN BERHASIL:",
-            result
-          );
+      // ==========================================
+      window.snap.pay(
+        paymentData.token,
+        {
+          onSuccess: (result) => {
+            console.log(
+              "PEMBAYARAN BERHASIL:",
+              result
+            );
 
-          alert(
-            "Pembayaran berhasil! Terima kasih sudah order di GET-HERE Coffee."
-          );
+            alert(
+              "Pembayaran berhasil! Terima kasih sudah order di GET-HERE Coffee."
+            );
 
-          window.location.href = `/tracking?orderId=${orderData.order.id}`;
-        },
+            window.location.href =
+              `/tracking?orderId=${orderData.order.id}`;
+          },
 
-        onPending: (result) => {
-          console.log(
-            "PEMBAYARAN PENDING:",
-            result
-          );
+          onPending: (result) => {
+            console.log(
+              "PEMBAYARAN PENDING:",
+              result
+            );
 
-          alert(
-            "Pembayaran masih menunggu. Silakan selesaikan pembayaran."
-          );
-        },
+            alert(
+              "Pembayaran masih menunggu. Silakan selesaikan pembayaran."
+            );
+          },
 
-        onError: (result) => {
-          console.error(
-            "PEMBAYARAN GAGAL:",
-            result
-          );
+          onError: (result) => {
+            console.error(
+              "PEMBAYARAN GAGAL:",
+              result
+            );
 
-          alert(
-            "Pembayaran gagal. Silakan coba lagi."
-          );
-        },
+            alert(
+              "Pembayaran gagal. Silakan coba lagi."
+            );
+          },
 
-        onClose: () => {
-          console.log(
-            "POPUP MIDTRANS DITUTUP"
-          );
+          onClose: () => {
+            console.log(
+              "POPUP MIDTRANS DITUTUP"
+            );
 
-          alert(
-            "Pembayaran belum selesai."
-          );
-        },
-      });
+            alert(
+              "Pembayaran belum selesai."
+            );
+          },
+        }
+      );
     } catch (error) {
       console.error(
         "CHECKOUT ERROR:",
@@ -234,9 +276,9 @@ export default function CheckoutPage() {
     }
   };
 
-  // =========================
+  // ==========================================
   // KERANJANG KOSONG
-  // =========================
+  // ==========================================
   if (cart.length === 0) {
     return (
       <main className="min-h-screen bg-[#F6F2EC] px-6 py-16">
@@ -264,16 +306,17 @@ export default function CheckoutPage() {
     );
   }
 
-  // =========================
+  // ==========================================
   // HALAMAN CHECKOUT
-  // =========================
+  // ==========================================
   return (
     <>
       {/* MIDTRANS SNAP */}
       <Script
         src="https://app.sandbox.midtrans.com/snap/snap.js"
         data-client-key={
-          process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY
+          process.env
+            .NEXT_PUBLIC_MIDTRANS_CLIENT_KEY
         }
       />
 
@@ -300,9 +343,9 @@ export default function CheckoutPage() {
 
           <div className="grid gap-8 lg:grid-cols-3">
 
-            {/* =========================
+            {/* ==========================================
                 FORM PEMBELI
-            ========================= */}
+            ========================================== */}
             <section className="lg:col-span-2">
               <div className="rounded-3xl bg-white p-6 shadow-sm">
 
@@ -323,7 +366,9 @@ export default function CheckoutPage() {
                       placeholder="Masukkan nama lengkap"
                       value={customerName}
                       onChange={(e) =>
-                        setCustomerName(e.target.value)
+                        setCustomerName(
+                          e.target.value
+                        )
                       }
                       className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none transition focus:border-[#8A6348]"
                     />
@@ -340,7 +385,9 @@ export default function CheckoutPage() {
                       placeholder="Contoh: 081234567890"
                       value={whatsapp}
                       onChange={(e) =>
-                        setWhatsapp(e.target.value)
+                        setWhatsapp(
+                          e.target.value
+                        )
                       }
                       className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none transition focus:border-[#8A6348]"
                     />
@@ -357,7 +404,9 @@ export default function CheckoutPage() {
                       placeholder="Masukkan alamat lengkap"
                       value={address}
                       onChange={(e) =>
-                        setAddress(e.target.value)
+                        setAddress(
+                          e.target.value
+                        )
                       }
                       className="w-full resize-none rounded-xl border border-gray-200 px-4 py-3 outline-none transition focus:border-[#8A6348]"
                     />
@@ -378,7 +427,9 @@ export default function CheckoutPage() {
                       placeholder="Contoh: Kurangi gula, kirim sore hari, dll."
                       value={note}
                       onChange={(e) =>
-                        setNote(e.target.value)
+                        setNote(
+                          e.target.value
+                        )
                       }
                       className="w-full resize-none rounded-xl border border-gray-200 px-4 py-3 outline-none transition focus:border-[#8A6348]"
                     />
@@ -388,9 +439,9 @@ export default function CheckoutPage() {
               </div>
             </section>
 
-            {/* =========================
+            {/* ==========================================
                 RINGKASAN PESANAN
-            ========================= */}
+            ========================================== */}
             <section>
               <div className="sticky top-6 rounded-3xl bg-white p-6 shadow-sm">
 
@@ -400,91 +451,198 @@ export default function CheckoutPage() {
 
                 <div className="space-y-5">
 
-                  {cart.map((item) => (
-                    <div
-                      key={item.id}
-                      className="border-b border-gray-100 pb-5"
-                    >
+                  {cart.map((item) => {
+                    const originalPrice =
+                      item.originalPrice ??
+                      item.price;
 
-                      <div className="flex items-start justify-between gap-4">
+                    const discountAmount =
+                      Math.max(
+                        originalPrice -
+                          item.price,
+                        0
+                      );
 
-                        <div>
-                          <h3 className="font-semibold text-[#211A16]">
-                            {item.name}
-                          </h3>
+                    const totalItemDiscount =
+                      discountAmount *
+                      item.quantity;
 
-                          <p className="mt-1 text-sm text-gray-500">
+                    const hasDiscount =
+                      originalPrice >
+                      item.price &&
+                      (item.discountPercent ?? 0) >
+                        0;
+
+                    const productImage =
+                      item.packaging === "CUP"
+                        ? item.cupImage ||
+                          item.image
+                        : item.bottleImage ||
+                          item.image;
+
+                    return (
+                      <div
+                        key={item.id}
+                        className="border-b border-gray-100 pb-5"
+                      >
+
+                        {/* PRODUK */}
+                        <div className="flex items-start justify-between gap-4">
+
+                          <div className="min-w-0">
+                            <h3 className="font-semibold text-[#211A16]">
+                              {item.name}
+                            </h3>
+
+                            {/* HARGA */}
+                            <div className="mt-1">
+
+                              {hasDiscount && (
+                                <div className="flex flex-wrap items-center gap-2">
+
+                                  {/* HARGA NORMAL */}
+                                  <span className="text-sm text-gray-400 line-through">
+                                    Rp{" "}
+                                    {originalPrice.toLocaleString(
+                                      "id-ID"
+                                    )}
+                                  </span>
+
+                                  {/* PERSENTASE DISKON */}
+                                  <span className="rounded-full bg-[#211A16] px-2 py-0.5 text-xs font-semibold text-white">
+                                    -
+                                    {
+                                      item.discountPercent
+                                    }
+                                    %
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* HARGA SETELAH DISKON */}
+                              <p className="text-sm font-medium text-gray-700">
+                                Rp{" "}
+                                {item.price.toLocaleString(
+                                  "id-ID"
+                                )}
+                              </p>
+
+                              {/* JUMLAH UANG YANG DIHEMAT */}
+                              {hasDiscount && (
+                                <p className="mt-1 text-xs font-medium text-green-600">
+                                  Hemat Rp{" "}
+                                  {totalItemDiscount.toLocaleString(
+                                    "id-ID"
+                                  )}
+                                </p>
+                              )}
+
+                            </div>
+                          </div>
+
+                          {/* TOTAL PRODUK */}
+                          <p className="whitespace-nowrap font-semibold text-[#211A16]">
                             Rp{" "}
-                            {item.price.toLocaleString(
+                            {(
+                              item.price *
+                              item.quantity
+                            ).toLocaleString(
                               "id-ID"
                             )}
                           </p>
+
                         </div>
 
-                        <p className="font-semibold text-[#211A16]">
-                          Rp{" "}
-                          {(
-                            item.price *
-                            item.quantity
-                          ).toLocaleString("id-ID")}
-                        </p>
+                        {/* QUANTITY */}
+                        <div className="mt-3 flex items-center gap-3">
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              decreaseQuantity(
+                                item.id
+                              )
+                            }
+                            className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 transition hover:bg-gray-200"
+                          >
+                            −
+                          </button>
+
+                          <span className="w-5 text-center font-semibold">
+                            {item.quantity}
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              increaseQuantity(
+                                item.id
+                              )
+                            }
+                            className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 transition hover:bg-gray-200"
+                          >
+                            +
+                          </button>
+
+                        </div>
 
                       </div>
-
-                      {/* QUANTITY */}
-                      <div className="mt-3 flex items-center gap-3">
-
-                        <button
-                          onClick={() =>
-                            decreaseQuantity(item.id)
-                          }
-                          className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 transition hover:bg-gray-200"
-                        >
-                          −
-                        </button>
-
-                        <span className="w-5 text-center font-semibold">
-                          {item.quantity}
-                        </span>
-
-                        <button
-                          onClick={() =>
-                            increaseQuantity(item.id)
-                          }
-                          className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 transition hover:bg-gray-200"
-                        >
-                          +
-                        </button>
-
-                      </div>
-
-                    </div>
-                  ))}
+                    );
+                  })}
 
                 </div>
 
-                {/* TOTAL */}
+                {/* ==========================================
+                    TOTAL
+                ========================================== */}
                 <div className="mt-6 border-t border-gray-200 pt-6">
 
+                  {/* SUBTOTAL HARGA NORMAL */}
                   <div className="mb-2 flex justify-between text-sm text-gray-500">
-                    <span>Subtotal</span>
+                    <span>
+                      Subtotal
+                    </span>
 
                     <span>
                       Rp{" "}
-                      {totalPrice.toLocaleString(
+                      {subtotalBeforeDiscount.toLocaleString(
                         "id-ID"
                       )}
                     </span>
                   </div>
 
-                  <div className="mb-4 flex justify-between text-sm text-gray-500">
-                    <span>Ongkir</span>
+                  {/* TOTAL DISKON */}
+                  {totalDiscount > 0 && (
+                    <div className="mb-2 flex justify-between text-sm text-green-600">
+                      <span>
+                        Diskon
+                      </span>
 
-                    <span>Rp 0</span>
+                      <span>
+                        -Rp{" "}
+                        {totalDiscount.toLocaleString(
+                          "id-ID"
+                        )}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* ONGKIR */}
+                  <div className="mb-4 flex justify-between text-sm text-gray-500">
+                    <span>
+                      Ongkir
+                    </span>
+
+                    <span>
+                      Rp 0
+                    </span>
                   </div>
 
+                  {/* TOTAL AKHIR */}
                   <div className="flex justify-between text-lg font-bold text-[#211A16]">
-                    <span>Total</span>
+                    <span>
+                      Total
+                    </span>
 
                     <span>
                       Rp{" "}
@@ -496,8 +654,11 @@ export default function CheckoutPage() {
 
                 </div>
 
-                {/* PAYMENT BUTTON */}
+                {/* ==========================================
+                    PAYMENT BUTTON
+                ========================================== */}
                 <button
+                  type="button"
                   disabled={loading}
                   onClick={handleCheckout}
                   className="mt-6 w-full rounded-full bg-[#211A16] py-4 font-semibold text-white transition hover:bg-[#8A6348] disabled:cursor-not-allowed disabled:opacity-50"

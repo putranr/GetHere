@@ -20,23 +20,39 @@ model Order {
 }
 
 model OrderItem {
-  id        Int    @id @default(autoincrement())
-  orderId   Int
-  productId Int
-  name      String
-  price     Int
-  quantity  Int
-  order     Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  id              Int    @id @default(autoincrement())
+  orderId         Int
+  productId       Int
+  name            String
+  price           Int
+  quantity        Int
+  originalPrice   Int
+  discountPercent Int    @default(0)
+  packaging       String
+  order           Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
 }
 
 model Product {
-  id              Int      @id @default(autoincrement())
-  name            String
-  description     String?
-  image           String?
-  price           Int
-  discountPercent Int      @default(0)
-  isAvailable     Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id          Int     @id @default(autoincrement())
+  name        String
+  description String?
+  image       String?
+
+  // Foto khusus kemasan
+  cupImage    String?
+  bottleImage String?
+
+  // Kategori produk
+  category String @default("COFFEE")
+
+  // Harga
+  price       Int
+  cupPrice    Int?
+  bottlePrice Int?
+
+  discountPercent Int     @default(0)
+  isAvailable     Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
