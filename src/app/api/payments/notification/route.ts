@@ -176,13 +176,14 @@ export async function POST(request: Request) {
       previousPaymentStatus !== "PAID"
     ) {
       const itemsText = order.items
-        .map(
-          (item) =>
-            `• ${item.name} x${item.quantity} = Rp${(
-              item.price * item.quantity
-            ).toLocaleString("id-ID")}`
-        )
-        .join("\n");
+      .map(
+        (item) =>
+          `• ${item.name} x${item.quantity} = Rp${(
+            item.price *
+            item.quantity
+          ).toLocaleString("id-ID")}`
+      )
+      .join("\n");
 
       const telegramMessage = `
 💰 <b>PEMBAYARAN BERHASIL — GET-HERE</b>

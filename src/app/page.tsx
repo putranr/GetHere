@@ -889,11 +889,21 @@ export default function Home() {
 
                 <div
                   className="
-                    flex gap-4 overflow-x-auto pb-4
-                    snap-x snap-mandatory
-                    sm:grid sm:grid-cols-2
-                    sm:overflow-visible sm:pb-0
-                    scrollbar-hide
+                    flex
+                    gap-4
+                    overflow-x-auto
+                    overflow-y-hidden
+                    snap-x
+                    snap-mandatory
+                    pb-4
+                    touch-pan-x
+                    [-ms-overflow-style:none]
+                    [scrollbar-width:none]
+                    [&::-webkit-scrollbar]:hidden
+                    sm:grid
+                    sm:grid-cols-2
+                    sm:overflow-visible
+                    sm:pb-0
                   "
                 >
                   {heroProducts.length > 0 ? (
@@ -901,9 +911,13 @@ export default function Home() {
                       <div
                         key={product.id}
                         className="
+                          w-[82vw]
                           min-w-[82vw]
+                          shrink-0
                           snap-start
+                          sm:w-auto
                           sm:min-w-0
+                          sm:shrink
                         "
                       >
                         <ProductCard

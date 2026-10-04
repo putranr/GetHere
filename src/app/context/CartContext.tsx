@@ -602,7 +602,7 @@ export function CartProvider({
 
         name: product.name,
 
-        price: product.price,
+        price: finalPrice,
 
         cupPrice:
           product.cupPrice,

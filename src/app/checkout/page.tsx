@@ -42,11 +42,8 @@ export default function CheckoutPage() {
   );
 
   // Total uang yang dihemat dari semua produk
-  const totalDiscount = cart.reduce(
-    (total, item) =>
-      total +
-      ((item.originalPrice ?? item.price) - item.price) *
-        item.quantity,
+  const totalDiscount = Math.max(
+    subtotalBeforeDiscount - totalPrice,
     0
   );
 
@@ -343,11 +340,11 @@ export default function CheckoutPage() {
 
           <div className="grid gap-8 lg:grid-cols-3">
 
-            {/* ==========================================
+           {/* ==========================================
                 FORM PEMBELI
             ========================================== */}
             <section className="lg:col-span-2">
-              <div className="rounded-3xl bg-white p-6 shadow-sm">
+              <div className="rounded-3xl bg-white p-6 shadow-sm sm:p-7">
 
                 <h2 className="mb-6 text-2xl font-bold text-[#211A16]">
                   Data Pembeli
@@ -366,11 +363,22 @@ export default function CheckoutPage() {
                       placeholder="Masukkan nama lengkap"
                       value={customerName}
                       onChange={(e) =>
-                        setCustomerName(
-                          e.target.value
-                        )
+                        setCustomerName(e.target.value)
                       }
-                      className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none transition focus:border-[#8A6348]"
+                      className="
+                        w-full
+                        rounded-xl
+                        border border-[#D9D1C9]
+                        bg-white
+                        px-4 py-3
+                        text-sm text-[#211A16]
+                        placeholder:text-[#8F857C]
+                        outline-none
+                        transition
+                        focus:border-[#8A6348]
+                        focus:ring-2
+                        focus:ring-[#8A6348]/10
+                      "
                     />
                   </div>
 
@@ -385,11 +393,22 @@ export default function CheckoutPage() {
                       placeholder="Contoh: 081234567890"
                       value={whatsapp}
                       onChange={(e) =>
-                        setWhatsapp(
-                          e.target.value
-                        )
+                        setWhatsapp(e.target.value)
                       }
-                      className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none transition focus:border-[#8A6348]"
+                      className="
+                        w-full
+                        rounded-xl
+                        border border-[#D9D1C9]
+                        bg-white
+                        px-4 py-3
+                        text-sm text-[#211A16]
+                        placeholder:text-[#8F857C]
+                        outline-none
+                        transition
+                        focus:border-[#8A6348]
+                        focus:ring-2
+                        focus:ring-[#8A6348]/10
+                      "
                     />
                   </div>
 
@@ -404,11 +423,23 @@ export default function CheckoutPage() {
                       placeholder="Masukkan alamat lengkap"
                       value={address}
                       onChange={(e) =>
-                        setAddress(
-                          e.target.value
-                        )
+                        setAddress(e.target.value)
                       }
-                      className="w-full resize-none rounded-xl border border-gray-200 px-4 py-3 outline-none transition focus:border-[#8A6348]"
+                      className="
+                        w-full
+                        resize-none
+                        rounded-xl
+                        border border-[#D9D1C9]
+                        bg-white
+                        px-4 py-3
+                        text-sm text-[#211A16]
+                        placeholder:text-[#8F857C]
+                        outline-none
+                        transition
+                        focus:border-[#8A6348]
+                        focus:ring-2
+                        focus:ring-[#8A6348]/10
+                      "
                     />
                   </div>
 
@@ -417,7 +448,7 @@ export default function CheckoutPage() {
                     <label className="mb-2 block text-sm font-semibold text-[#211A16]">
                       Catatan Pesanan
 
-                      <span className="ml-1 font-normal text-gray-400">
+                      <span className="ml-1 font-normal text-[#8F857C]">
                         (opsional)
                       </span>
                     </label>
@@ -427,11 +458,23 @@ export default function CheckoutPage() {
                       placeholder="Contoh: Kurangi gula, kirim sore hari, dll."
                       value={note}
                       onChange={(e) =>
-                        setNote(
-                          e.target.value
-                        )
+                        setNote(e.target.value)
                       }
-                      className="w-full resize-none rounded-xl border border-gray-200 px-4 py-3 outline-none transition focus:border-[#8A6348]"
+                      className="
+                        w-full
+                        resize-none
+                        rounded-xl
+                        border border-[#D9D1C9]
+                        bg-white
+                        px-4 py-3
+                        text-sm text-[#211A16]
+                        placeholder:text-[#8F857C]
+                        outline-none
+                        transition
+                        focus:border-[#8A6348]
+                        focus:ring-2
+                        focus:ring-[#8A6348]/10
+                      "
                     />
                   </div>
 
@@ -456,10 +499,13 @@ export default function CheckoutPage() {
                       item.originalPrice ??
                       item.price;
 
+                    const finalPrice =
+                      item.finalPrice ??
+                      item.price;
+
                     const discountAmount =
                       Math.max(
-                        originalPrice -
-                          item.price,
+                        originalPrice - finalPrice,
                         0
                       );
 
@@ -468,10 +514,8 @@ export default function CheckoutPage() {
                       item.quantity;
 
                     const hasDiscount =
-                      originalPrice >
-                      item.price &&
-                      (item.discountPercent ?? 0) >
-                        0;
+                      originalPrice > finalPrice &&
+                      (item.discountPercent ?? 0) > 0;
 
                    const productImage = item.image;
 
@@ -490,45 +534,34 @@ export default function CheckoutPage() {
                             </h3>
 
                             {/* HARGA */}
-                            <div className="mt-1">
+                            <div className="mt-2">
 
                               {hasDiscount && (
                                 <div className="flex flex-wrap items-center gap-2">
-
                                   {/* HARGA NORMAL */}
-                                  <span className="text-sm text-gray-400 line-through">
+                                  <span className="text-sm text-[#9A9087] line-through">
                                     Rp{" "}
-                                    {originalPrice.toLocaleString(
-                                      "id-ID"
-                                    )}
+                                    {originalPrice.toLocaleString("id-ID")}
                                   </span>
 
                                   {/* PERSENTASE DISKON */}
-                                  <span className="rounded-full bg-[#211A16] px-2 py-0.5 text-xs font-semibold text-white">
-                                    -
-                                    {
-                                      item.discountPercent
-                                    }
-                                    %
+                                  <span className="rounded-full bg-[#40551F] px-2 py-0.5 text-[11px] font-bold text-white">
+                                    -{item.discountPercent}%
                                   </span>
                                 </div>
                               )}
 
                               {/* HARGA SETELAH DISKON */}
-                              <p className="text-sm font-medium text-gray-700">
+                              <p className="text-sm font-semibold text-[#261C17]">
                                 Rp{" "}
-                                {item.price.toLocaleString(
-                                  "id-ID"
-                                )}
+                                {finalPrice.toLocaleString("id-ID")}
                               </p>
 
-                              {/* JUMLAH UANG YANG DIHEMAT */}
+                              {/* HEMAT */}
                               {hasDiscount && (
-                                <p className="mt-1 text-xs font-medium text-green-600">
+                                <p className="mt-1 text-xs font-medium text-[#40551F]">
                                   Hemat Rp{" "}
-                                  {totalItemDiscount.toLocaleString(
-                                    "id-ID"
-                                  )}
+                                  {totalItemDiscount.toLocaleString("id-ID")}
                                 </p>
                               )}
 
@@ -590,60 +623,54 @@ export default function CheckoutPage() {
                 {/* ==========================================
                     TOTAL
                 ========================================== */}
-                <div className="mt-6 border-t border-gray-200 pt-6">
+                <div className="mt-6 border-t border-[#E5DED6] pt-6">
 
-                  {/* SUBTOTAL HARGA NORMAL */}
-                  <div className="mb-2 flex justify-between text-sm text-gray-500">
-                    <span>
+                  {/* SUBTOTAL */}
+                  <div className="mb-3 flex items-center justify-between text-sm">
+                    <span className="text-[#756B63]">
                       Subtotal
                     </span>
 
-                    <span>
+                    <span className="font-medium text-[#261C17]">
                       Rp{" "}
-                      {subtotalBeforeDiscount.toLocaleString(
-                        "id-ID"
-                      )}
+                      {subtotalBeforeDiscount.toLocaleString("id-ID")}
                     </span>
                   </div>
 
-                  {/* TOTAL DISKON */}
+                  {/* DISKON */}
                   {totalDiscount > 0 && (
-                    <div className="mb-2 flex justify-between text-sm text-green-600">
-                      <span>
+                    <div className="mb-3 flex items-center justify-between text-sm">
+                      <span className="text-[#40551F]">
                         Diskon
                       </span>
 
-                      <span>
+                      <span className="font-semibold text-[#40551F]">
                         -Rp{" "}
-                        {totalDiscount.toLocaleString(
-                          "id-ID"
-                        )}
+                        {totalDiscount.toLocaleString("id-ID")}
                       </span>
                     </div>
                   )}
 
                   {/* ONGKIR */}
-                  <div className="mb-4 flex justify-between text-sm text-gray-500">
-                    <span>
+                  <div className="mb-5 flex items-center justify-between text-sm">
+                    <span className="text-[#756B63]">
                       Ongkir
                     </span>
 
-                    <span>
+                    <span className="font-medium text-[#261C17]">
                       Rp 0
                     </span>
                   </div>
 
                   {/* TOTAL AKHIR */}
-                  <div className="flex justify-between text-lg font-bold text-[#211A16]">
-                    <span>
+                  <div className="flex items-end justify-between border-t border-[#E5DED6] pt-5">
+                    <span className="text-lg font-bold text-[#211A16]">
                       Total
                     </span>
 
-                    <span>
+                    <span className="text-2xl font-black text-[#211A16]">
                       Rp{" "}
-                      {totalPrice.toLocaleString(
-                        "id-ID"
-                      )}
+                      {totalPrice.toLocaleString("id-ID")}
                     </span>
                   </div>
 
