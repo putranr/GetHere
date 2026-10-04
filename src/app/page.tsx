@@ -885,26 +885,39 @@ export default function Home() {
                   </a>
                 </div>
 
-                {/* BEST SELLER PRODUCTS */}
+               {/* BEST SELLER PRODUCTS */}
 
-                <div className="grid grid-cols-2 gap-4">
+                <div
+                  className="
+                    flex gap-4 overflow-x-auto pb-4
+                    snap-x snap-mandatory
+                    sm:grid sm:grid-cols-2
+                    sm:overflow-visible sm:pb-0
+                    scrollbar-hide
+                  "
+                >
                   {heroProducts.length > 0 ? (
                     heroProducts.map((product) => (
-                      <ProductCard
+                      <div
                         key={product.id}
-                        product={product}
-                        compact
-                      />
+                        className="
+                          min-w-[82vw]
+                          snap-start
+                          sm:min-w-0
+                        "
+                      >
+                        <ProductCard
+                          product={product}
+                          compact
+                        />
+                      </div>
                     ))
                   ) : (
-                    <div className="col-span-2 flex min-h-[300px] items-center justify-center rounded-[30px] bg-[#E4D5C4] text-7xl">
+                    <div className="flex min-h-[300px] min-w-full items-center justify-center rounded-[30px] bg-[#E4D5C4] text-7xl sm:col-span-2">
                       ☕
                     </div>
                   )}
-            </div>
-          </div>
-        </div>
-      </section>
+                </div>
 
       {/* =====================================================
           FEATURES
