@@ -889,28 +889,36 @@ export default function Home() {
 
                 <div
                   className="
-                    w-full min-w-0
-                    overflow-x-auto
-                    overscroll-x-contain
+                    w-full
+                    min-w-0
+                    overflow-x-scroll
+                    overflow-y-hidden
                     touch-pan-x
-                    snap-x snap-mandatory
+                    overscroll-x-contain
+                    snap-x
+                    snap-mandatory
                     pb-4
-                    scrollbar-hide
                     [-webkit-overflow-scrolling:touch]
+                    scrollbar-hide
+                    md:grid
+                    md:grid-cols-3
+                    md:overflow-visible
+                    md:pb-0
                   "
                 >
-                  <div className="flex w-max gap-4">
+                  <div className="flex w-max gap-4 md:w-full">
                     {heroProducts.length > 0 ? (
                       heroProducts.map((product) => (
                         <div
                           key={product.id}
                           className="
-                            w-[calc(100vw-64px)]
-                            max-w-[420px]
+                            w-[82vw]
+                            min-w-[82vw]
                             shrink-0
                             snap-start
-                            sm:w-[300px]
-                            lg:w-[320px]
+                            md:w-auto
+                            md:min-w-0
+                            md:flex-1
                           "
                         >
                           <ProductCard
@@ -920,7 +928,7 @@ export default function Home() {
                         </div>
                       ))
                     ) : (
-                      <div className="flex min-h-[300px] w-[calc(100vw-64px)] items-center justify-center rounded-[30px] bg-[#E4D5C4] text-7xl">
+                      <div className="flex min-h-[300px] w-[82vw] items-center justify-center rounded-[30px] bg-[#E4D5C4] text-7xl md:col-span-3">
                         ☕
                       </div>
                     )}
