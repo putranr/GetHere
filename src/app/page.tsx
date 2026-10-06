@@ -503,8 +503,12 @@ export default function Home() {
 
         <div
           data-product-image
-          className="relative flex h-[220px] shrink-0 items-center justify-center overflow-hidden bg-[#E4D5C4] sm:h-[245px]"
-        >
+         className={`relative flex shrink-0 items-center justify-center overflow-hidden bg-[#E4D5C4] ${
+           compact
+            ? "h-[90px] sm:h-[120px]"
+            : "h-[220px] sm:h-[245px]"
+          }`}
+        >   
           {product.image ? (
             <img
               src={product.image}
@@ -546,8 +550,12 @@ export default function Home() {
 
           <button
             type="button"
-            className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-lg shadow-sm backdrop-blur transition hover:scale-110"
-          >
+            className={`absolute flex items-center justify-center rounded-full bg-white/90 shadow-sm backdrop-blur transition hover:scale-110 ${
+              compact
+                ? "right-3 top-3 h-7 w-7 text-sm"
+                : "right-4 top-4 h-9 w-9 text-lg"
+            }`}
+            >
             ♡
           </button>
 
@@ -555,7 +563,13 @@ export default function Home() {
 
         {/* INFO */}
 
-        <div className="flex flex-1 flex-col p-5 sm:p-6">
+        <div
+          className={`flex flex-1 flex-col ${
+            compact
+            ? "p-3 sm:p-4"
+            : "p-5 sm:p-6"  
+          }`}
+        >
           <div className="mb-2">
             <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#8A6348]">
               {isNonCoffee(product)
@@ -564,18 +578,30 @@ export default function Home() {
             </span>
           </div>
 
-          <h3 className="text-xl font-bold tracking-tight text-[#261C17]">
+          <h3
+            className={`font-bold tracking-tight text-[#261C17] ${
+              compact
+                ? "text-base sm:text-xl"
+                : "text-xl"
+            }`}
+          >
             {product.name}
           </h3>
 
-          <p className="mt-2 min-h-[44px] text-sm leading-6 text-[#756B63]">
+          <p
+            className={`mt-2 text-sm leading-6 text-[#756B63] ${
+              compact
+                ? "line-clamp-1 min-h-0 text-[11px] leading-4"
+                : "min-h-[44px]"
+            }`}
+          >
             {product.description ||
               "Minuman pilihan Get-Here untuk menemani setiap momen."}
           </p>
 
           {/* PACKAGING */}
 
-          <div className="mt-5">
+          <div className={compact ? "mt-2" : "mt-5"}>
             <p className="mb-2 text-xs font-bold text-[#4D4037]">
               Pilih Kemasan
             </p>
@@ -593,7 +619,9 @@ export default function Home() {
                 disabled={
                   product.cupPrice == null
                 }
-                className={`relative rounded-2xl border p-3 text-left transition ${
+                className={`relative rounded-2xl border text-left transition ${
+                  compact ? "p-2" : "p-3"
+                } ${
                   packaging === "CUP"
                     ? "border-[#40551F] bg-[#F2F5EA] shadow-sm"
                     : "border-[#E2D8CD] bg-white hover:border-[#B7A999]"
@@ -610,7 +638,7 @@ export default function Home() {
                     </span>
                   )}
 
-                <div className="text-lg">
+                <div className={compact ? "text-base" : "text-lg"}>
                   🥤
                 </div>
 
@@ -644,7 +672,9 @@ export default function Home() {
                 disabled={
                   product.bottlePrice == null
                 }
-                className={`relative rounded-2xl border p-3 text-left transition ${
+                className={`relative rounded-2xl border text-left transition ${
+                  compact ? "p-2" : "p-3"
+                } ${
                   packaging === "BOTTLE"
                     ? "border-[#40551F] bg-[#F2F5EA] shadow-sm"
                     : "border-[#E2D8CD] bg-white hover:border-[#B7A999]"
@@ -661,7 +691,7 @@ export default function Home() {
                     </span>
                   )}
 
-                <div className="text-lg">
+                <div className={compact ? "text-base" : "text-lg"}>
                   🧴
                 </div>
 
@@ -687,7 +717,11 @@ export default function Home() {
 
           {/* PRICE */}
 
-          <div className="mt-auto pt-5">
+          <div
+            className={`mt-auto ${
+              compact ? "pt-2" : "pt-5"
+            }`}
+          >
             {product.discountPercent > 0 &&
               selectedOriginalPrice !==
                 null && (
@@ -700,7 +734,13 @@ export default function Home() {
               )}
 
             <div className="mt-1 flex items-center justify-between gap-3">
-              <span className="text-lg font-extrabold text-[#261C17]">
+              <span
+                className={`font-extrabold text-[#261C17] ${
+                  compact
+                    ? "text-base sm:text-lg"
+                    : "text-lg"
+                }`}
+              >
                 {finalPrice !== null
                   ? `Rp${finalPrice.toLocaleString(
                       "id-ID"
@@ -716,8 +756,12 @@ export default function Home() {
                 disabled={
                   finalPrice === null
                 }
-                className="shrink-0 rounded-full bg-[#40551F] px-5 py-2.5 text-sm font-semibold text-white transition hover:scale-105 hover:bg-[#334517] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
-              >
+                className={`shrink-0 rounded-full bg-[#40551F] text-sm font-semibold text-white transition hover:scale-105 hover:bg-[#334517] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100 ${
+                  compact
+                    ? "px-4 py-2"
+                    : "px-5 py-2.5"
+                }`}
+                >
                 + Keranjang
               </button>
             </div>
@@ -937,23 +981,16 @@ export default function Home() {
 
       {/* BEST SELLER HEADER */}
       <div className="mb-5 flex items-end justify-between">
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#8A6348]">
-            GetHere Picks
-          </p>
+      <div className="lg:ml-[240px]">
+        <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#8A6348]">
+          GetHere Picks
+        </p>
 
-          <h2 className="mt-1 text-2xl font-black tracking-tight text-[#261C17] sm:text-3xl">
-            Best Seller
-          </h2>
-        </div>
-
-        <a
-          href="#produk"
-          className="text-xs font-bold text-[#40551F] transition hover:text-[#6D321B]"
-        >
-          Lihat Semua →
-        </a>
+        <h2 className="mt-1 text-2xl font-black tracking-tight text-[#261C17] sm:text-3xl">
+          Best Seller
+        </h2>
       </div>
+    </div>
 
       {/* BEST SELLER CAROUSEL */}
       <div className="relative">
@@ -961,6 +998,8 @@ export default function Home() {
         {/* CAROUSEL VIEWPORT */}
         <div
           className={`
+            mx-auto w-full max-w-[350px]
+           h-[360px] sm:h-[420px]
             overflow-hidden rounded-[30px]
             select-none
             touch-pan-y
@@ -987,7 +1026,7 @@ export default function Home() {
               heroProducts.map((product) => (
                 <div
                   key={product.id}
-                  className="w-full min-w-full shrink-0"
+                  className="basis-full min-w-0 shrink-0 grow-0"
                 >
                   <ProductCard
                     product={product}
