@@ -583,31 +583,26 @@ export default function CheckoutPage() {
 
                         {/* QUANTITY */}
                         <div className="mt-3 flex items-center gap-3">
-
                           <button
                             type="button"
                             onClick={() =>
-                              decreaseQuantity(
-                                item.id
-                              )
+                              decreaseQuantity(item.id)
                             }
-                            className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 transition hover:bg-gray-200"
+                            className="flex h-9 w-9 items-center justify-center rounded-full border border-[#D8C9BA] bg-[#F3EEE8] text-lg font-bold text-[#211A16] transition hover:bg-[#E7DED4]"
                           >
                             −
                           </button>
 
-                          <span className="w-5 text-center font-semibold">
+                          <span className="w-5 text-center font-bold text-[#211A16]">
                             {item.quantity}
                           </span>
 
                           <button
                             type="button"
                             onClick={() =>
-                              increaseQuantity(
-                                item.id
-                              )
+                              increaseQuantity(item.id)
                             }
-                            className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 transition hover:bg-gray-200"
+                            className="flex h-9 w-9 items-center justify-center rounded-full border border-[#D8C9BA] bg-[#F3EEE8] text-lg font-bold text-[#211A16] transition hover:bg-[#E7DED4]"
                           >
                             +
                           </button>
