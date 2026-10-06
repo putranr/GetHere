@@ -1042,55 +1042,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* PREVIOUS BUTTON */}
-        {heroProducts.length > 1 && (
-          <button
-            type="button"
-            onClick={prevBestSeller}
-            aria-label="Produk sebelumnya"
-            className="
-              absolute left-3 top-1/2 z-10
-              flex h-10 w-10 -translate-y-1/2
-              items-center justify-center
-              rounded-full
-              bg-white/90
-              text-lg text-[#261C17]
-              shadow-lg
-              backdrop-blur
-              transition
-              hover:scale-105
-              hover:bg-white
-              active:scale-95
-            "
-          >
-            ←
-          </button>
-        )}
-
-        {/* NEXT BUTTON */}
-        {heroProducts.length > 1 && (
-          <button
-            type="button"
-            onClick={nextBestSeller}
-            aria-label="Produk berikutnya"
-            className="
-              absolute right-3 top-1/2 z-10
-              flex h-10 w-10 -translate-y-1/2
-              items-center justify-center
-              rounded-full
-              bg-white/90
-              text-lg text-[#261C17]
-              shadow-lg
-              backdrop-blur
-              transition
-              hover:scale-105
-              hover:bg-white
-              active:scale-95
-            "
-          >
-            →
-          </button>
-        )}
 
         {/* DOT INDICATOR */}
         {heroProducts.length > 1 && (
