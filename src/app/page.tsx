@@ -675,7 +675,7 @@ export default function Home() {
   // =======================================================
 
   const heroProducts =
-    coffeeProducts.slice(0, 2);
+    coffeeProducts.slice(0, 3);
 
   // =======================================================
   // RENDER
@@ -885,52 +885,46 @@ export default function Home() {
                   </a>
                 </div>
 
-               {/* BEST SELLER PRODUCTS */}
+                {/* BEST SELLER PRODUCTS */}
 
                 <div
                   className="
-                    flex
-                    gap-4
+                    w-full min-w-0
                     overflow-x-auto
-                    overflow-y-hidden
-                    snap-x
-                    snap-mandatory
-                    pb-4
+                    overscroll-x-contain
                     touch-pan-x
-                    [-ms-overflow-style:none]
-                    [scrollbar-width:none]
-                    [&::-webkit-scrollbar]:hidden
-                    sm:grid
-                    sm:grid-cols-2
-                    sm:overflow-visible
-                    sm:pb-0
+                    snap-x snap-mandatory
+                    pb-4
+                    scrollbar-hide
+                    [-webkit-overflow-scrolling:touch]
                   "
                 >
-                  {heroProducts.length > 0 ? (
-                    heroProducts.map((product) => (
-                      <div
-                        key={product.id}
-                        className="
-                          w-[82vw]
-                          min-w-[82vw]
-                          shrink-0
-                          snap-start
-                          sm:w-auto
-                          sm:min-w-0
-                          sm:shrink
-                        "
-                      >
-                        <ProductCard
-                          product={product}
-                          compact
-                        />
+                  <div className="flex w-max gap-4">
+                    {heroProducts.length > 0 ? (
+                      heroProducts.map((product) => (
+                        <div
+                          key={product.id}
+                          className="
+                            w-[calc(100vw-64px)]
+                            max-w-[420px]
+                            shrink-0
+                            snap-start
+                            sm:w-[300px]
+                            lg:w-[320px]
+                          "
+                        >
+                          <ProductCard
+                            product={product}
+                            compact
+                          />
+                        </div>
+                      ))
+                    ) : (
+                      <div className="flex min-h-[300px] w-[calc(100vw-64px)] items-center justify-center rounded-[30px] bg-[#E4D5C4] text-7xl">
+                        ☕
                       </div>
-                    ))
-                  ) : (
-                    <div className="flex min-h-[300px] min-w-full items-center justify-center rounded-[30px] bg-[#E4D5C4] text-7xl sm:col-span-2">
-                      ☕
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
