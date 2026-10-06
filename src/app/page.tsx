@@ -62,22 +62,44 @@ export default function Home() {
   const [productsLoading, setProductsLoading] = useState(true);
 
   // =======================================================
+  // CATEGORY
+  // =======================================================
+
+  const isNonCoffee = (product: Product) =>
+    product.category === "NON_COFFEE";
+
+  const coffeeProducts = products.filter(
+    (product) => !isNonCoffee(product)
+  );
+
+  const nonCoffeeProducts = products.filter(
+    (product) => isNonCoffee(product)
+  );
+
+  const heroProducts = coffeeProducts.slice(0, 3);
+
+  // =======================================================
   // UI
   // =======================================================
 
   const [cartOpen, setCartOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const cartButtonRef = useRef<HTMLButtonElement>(null);
+  const cartButtonRef =
+    useRef<HTMLButtonElement>(null);
 
   // =======================================================
   // BEST SELLER CAROUSEL
   // =======================================================
 
-  const [bestSellerIndex, setBestSellerIndex] = useState(0);
+  const [bestSellerIndex, setBestSellerIndex] =
+    useState(0);
 
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStartX, setDragStartX] = useState(0);
+  const [isDragging, setIsDragging] =
+    useState(false);
+
+  const [dragStartX, setDragStartX] =
+    useState(0);
 
   const nextBestSeller = () => {
     setBestSellerIndex((current) =>
@@ -96,18 +118,23 @@ export default function Home() {
   };
 
   useEffect(() => {
-  if (heroProducts.length <= 1 || isDragging) return;
+    if (
+      heroProducts.length <= 1 ||
+      isDragging
+    ) {
+      return;
+    }
 
-  const timer = setInterval(() => {
-    setBestSellerIndex((current) =>
-      current >= heroProducts.length - 1
-        ? 0
-        : current + 1
-    );
-  }, 3000);
+    const timer = setInterval(() => {
+      setBestSellerIndex((current) =>
+        current >= heroProducts.length - 1
+          ? 0
+          : current + 1
+      );
+    }, 3000);
 
-  return () => clearInterval(timer);
-}, [heroProducts.length, isDragging]);
+    return () => clearInterval(timer);
+  }, [heroProducts.length, isDragging]);
 
   const handleDragStart = (
     event: PointerEvent<HTMLDivElement>
@@ -121,7 +148,8 @@ export default function Home() {
   ) => {
     if (!isDragging) return;
 
-    const dragDistance = event.clientX - dragStartX;
+    const dragDistance =
+      event.clientX - dragStartX;
 
     if (dragDistance < -50) {
       nextBestSeller();
@@ -178,21 +206,6 @@ export default function Home() {
   }, []);
 
   // =======================================================
-  // CATEGORY
-  // =======================================================
-
-  const isNonCoffee = (product: Product) =>
-    product.category === "NON_COFFEE";
-
-  const coffeeProducts = products.filter(
-    (product) => !isNonCoffee(product)
-  );
-
-  const nonCoffeeProducts = products.filter(
-    (product) => isNonCoffee(product)
-  );
-
-  // =======================================================
   // PRICE
   // =======================================================
 
@@ -236,7 +249,7 @@ export default function Home() {
   // =======================================================
 
   const animateToCart = (
-    event: MouseEvent<HTMLButtonElement>
+    event: PointerEvent<HTMLButtonElement>
   ) => {
     const cartButton = cartButtonRef.current;
 
@@ -449,7 +462,7 @@ export default function Home() {
     };
 
     const handleAddToCart = (
-      event: MouseEvent<HTMLButtonElement>
+      event: PointerEvent<HTMLButtonElement>
     ) => {
       if (
         selectedOriginalPrice === null ||
@@ -734,13 +747,6 @@ export default function Home() {
       : nonCoffeeProducts;
 
   // =======================================================
-  // HERO
-  // =======================================================
-
-  const heroProducts =
-    coffeeProducts.slice(0, 3);
-
-  // =======================================================
   // RENDER
   // =======================================================
 
@@ -881,265 +887,197 @@ export default function Home() {
       </header>
 
       {/* =====================================================
-          HERO
-      ===================================================== */}
+    HERO
+===================================================== */}
 
-      <section className="px-5 pb-14 pt-10 sm:px-8 sm:pb-20 sm:pt-16">
-        <div className="mx-auto grid max-w-[1400px] gap-8 lg:grid-cols-[1.05fr_.95fr] lg:items-center">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.3em] text-[#8A6348]">
-              GetHere Coffee
-            </p>
+<section className="px-5 pb-14 pt-10 sm:px-8 sm:pb-20 sm:pt-16">
+  <div className="mx-auto grid max-w-[1400px] gap-8 lg:grid-cols-[1.05fr_.95fr] lg:items-center">
 
-            <h1 className="mt-4 max-w-3xl text-5xl font-black leading-[0.95] tracking-[-0.04em] sm:text-7xl">
-              Good Coffee.
-              <br />
-              Good{" "}
-              <span className="italic text-[#6D321B]">
-                Moment.
-              </span>
-            </h1>
+    {/* HERO TEXT */}
+    <div>
+      <p className="text-xs font-bold uppercase tracking-[0.3em] text-[#8A6348]">
+        GetHere Coffee
+      </p>
 
-            <p className="mt-6 max-w-xl text-sm leading-7 text-[#756B63] sm:text-base">
-              Temukan minuman favoritmu,
-              pilih kemasan yang kamu suka,
-              lalu pesan dengan mudah
-              bersama GetHere.
-            </p>
+      <h1 className="mt-4 max-w-3xl text-5xl font-black leading-[0.95] tracking-[-0.04em] sm:text-7xl">
+        Good Coffee.
+        <br />
+        Good{" "}
+        <span className="italic text-[#6D321B]">
+          Moment.
+        </span>
+      </h1>
 
-            <div className="mt-7 flex flex-wrap gap-3">
-              <a
-                href="#produk"
-                className="rounded-full bg-[#40551F] px-7 py-3.5 text-sm font-bold text-white shadow-lg transition hover:-translate-y-0.5"
-              >
-                Lihat Menu
-              </a>
+      <p className="mt-6 max-w-xl text-sm leading-7 text-[#756B63] sm:text-base">
+        Temukan minuman favoritmu,
+        pilih kemasan yang kamu suka,
+        lalu pesan dengan mudah
+        bersama GetHere.
+      </p>
 
-              <Link
-                href="/tracking"
-                className="rounded-full border border-[#D8C9BA] bg-white px-7 py-3.5 text-sm font-bold"
-              >
-                Lacak Pesanan
-              </Link>
-            </div>
-          </div>
+      <div className="mt-7 flex flex-wrap gap-3">
+        <a
+          href="#produk"
+          className="rounded-full bg-[#40551F] px-7 py-3.5 text-sm font-bold text-white shadow-lg transition hover:-translate-y-0.5"
+        >
+          Lihat Menu
+        </a>
 
-          {/* BEST SELLER */}
+        <Link
+          href="/tracking"
+          className="rounded-full border border-[#D8C9BA] bg-white px-7 py-3.5 text-sm font-bold"
+        >
+          Lacak Pesanan
+        </Link>
+      </div>
+    </div>
 
-              <div>
-                {/* BEST SELLER HEADER */}
+    {/* BEST SELLER */}
+    <div>
 
-                <div className="mb-5 flex items-end justify-between">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#8A6348]">
-                      GetHere Picks
-                    </p>
+      {/* BEST SELLER HEADER */}
+      <div className="mb-5 flex items-end justify-between">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#8A6348]">
+            GetHere Picks
+          </p>
 
-                    <h2 className="mt-1 text-2xl font-black tracking-tight text-[#261C17] sm:text-3xl">
-                      Best Seller
-                    </h2>
-                  </div>
+          <h2 className="mt-1 text-2xl font-black tracking-tight text-[#261C17] sm:text-3xl">
+            Best Seller
+          </h2>
+        </div>
 
-                  <a
-                    href="#produk"
-                    className="text-xs font-bold text-[#40551F] transition hover:text-[#6D321B]"
-                  >
-                    Lihat Semua →
-                  </a>
+        <a
+          href="#produk"
+          className="text-xs font-bold text-[#40551F] transition hover:text-[#6D321B]"
+        >
+          Lihat Semua →
+        </a>
+      </div>
+
+      {/* BEST SELLER CAROUSEL */}
+      <div className="relative">
+
+        {/* CAROUSEL VIEWPORT */}
+        <div
+          className={`
+            overflow-hidden rounded-[30px]
+            select-none
+            touch-pan-y
+            ${isDragging ? "cursor-grabbing" : "cursor-grab"}
+          `}
+          onPointerDown={handleDragStart}
+          onPointerUp={handleDragEnd}
+          onPointerCancel={() => setIsDragging(false)}
+          onPointerLeave={(event) => {
+            if (isDragging) {
+              handleDragEnd(event);
+            }
+          }}
+        >
+
+          {/* SLIDES */}
+          <div
+            className="flex transition-transform duration-700 ease-out"
+            style={{
+              transform: `translateX(-${bestSellerIndex * 100}%)`,
+            }}
+          >
+            {heroProducts.length > 0 ? (
+              heroProducts.map((product) => (
+                <div
+                  key={product.id}
+                  className="w-full min-w-full shrink-0"
+                >
+                  <ProductCard
+                    product={product}
+                    compact
+                  />
                 </div>
-
-                {/* BEST SELLER PRODUCTS */}
-                  <div className="relative">
-
-                    {/* CAROUSEL */}
-                    <div
-                      className={`
-                        overflow-hidden rounded-[30px]
-                        select-none
-                        touch-pan-y
-                        ${isDragging ? "cursor-grabbing" : "cursor-grab"}
-                      `}
-                      onPointerDown={handleDragStart}
-                      onPointerUp={handleDragEnd}
-                      onPointerCancel={() => setIsDragging(false)}
-                      onPointerLeave={(event) => {
-                        if (isDragging) {
-                          handleDragEnd(event);
-                        }
-                      }}
-                    >
-
-                      <div
-                        className="flex transition-transform duration-700 ease-out"
-                        style={{
-                          transform: `translateX(-${bestSellerIndex * 100}%)`,
-                        }}
-                      >
-                        {heroProducts.length > 0 ? (
-                          heroProducts.map((product) => (
-                            <div
-                              key={product.id}
-                              className="w-full min-w-full shrink-0"
-                            >
-                              <ProductCard
-                                product={product}
-                                compact
-                              />
-                            </div>
-                          ))
-                        ) : (
-                          <div className="flex min-h-[300px] w-full items-center justify-center rounded-[30px] bg-[#E4D5C4] text-7xl">
-                            ☕
-                          </div>
-                        )}
-                      </div>
-
-                    </div>
-
-                    {/* PREV BUTTON */}
-                    {heroProducts.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={prevBestSeller}
-                        aria-label="Produk sebelumnya"
-                        className="
-                          absolute left-3 top-1/2 z-10
-                          flex h-10 w-10 -translate-y-1/2
-                          items-center justify-center
-                          rounded-full
-                          bg-white/90
-                          text-lg text-[#261C17]
-                          shadow-lg
-                          backdrop-blur
-                          transition
-                          hover:scale-105
-                          hover:bg-white
-                          active:scale-95
-                        "
-                      >
-                        ←
-                      </button>
-                    )}
-
-                    {/* NEXT BUTTON */}
-                    {heroProducts.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={nextBestSeller}
-                        aria-label="Produk berikutnya"
-                        className="
-                          absolute right-3 top-1/2 z-10
-                          flex h-10 w-10 -translate-y-1/2
-                          items-center justify-center
-                          rounded-full
-                          bg-white/90
-                          text-lg text-[#261C17]
-                          shadow-lg
-                          backdrop-blur
-                          transition
-                          hover:scale-105
-                          hover:bg-white
-                          active:scale-95
-                        "
-                      >
-                        →
-                      </button>
-                    )}
-
-                    {/* DOT INDICATOR */}
-                    {heroProducts.length > 1 && (
-                      <div className="mt-4 flex justify-center gap-2">
-                        {heroProducts.map((product, index) => (
-                          <button
-                            key={product.id}
-                            type="button"
-                            onClick={() => setBestSellerIndex(index)}
-                            aria-label={`Lihat produk ${index + 1}`}
-                            className={`
-                              h-2 rounded-full transition-all duration-300
-                              ${
-                                index === bestSellerIndex
-                                  ? "w-6 bg-[#40551F]"
-                                  : "w-2 bg-[#CDBEAE]"
-                              }
-                            `}
-                          />
-                        ))}
-                      </div>
-                    )}
-
-                  </div>
-
-                  {/* PREVIOUS */}
-                  <button
-                    type="button"
-                    onClick={prevBestSeller}
-                    aria-label="Best seller sebelumnya"
-                    className="
-                      absolute left-3 top-1/2 z-10
-                      flex h-10 w-10
-                      -translate-y-1/2
-                      items-center justify-center
-                      rounded-full
-                      bg-white/95
-                      text-lg
-                      font-bold
-                      text-[#261C17]
-                      shadow-lg
-                      transition
-                      hover:scale-105
-                    "
-                  >
-                    ←
-                  </button>
-
-                  {/* NEXT */}
-                  <button
-                    type="button"
-                    onClick={nextBestSeller}
-                    aria-label="Best seller berikutnya"
-                    className="
-                      absolute right-3 top-1/2 z-10
-                      flex h-10 w-10
-                      -translate-y-1/2
-                      items-center justify-center
-                      rounded-full
-                      bg-white/95
-                      text-lg
-                      font-bold
-                      text-[#261C17]
-                      shadow-lg
-                      transition
-                      hover:scale-105
-                    "
-                  >
-                    →
-                  </button>
-
-                  {/* INDICATOR */}
-                  <div className="mt-4 flex justify-center gap-2">
-                    {heroProducts.map((product, index) => (
-                      <button
-                        key={product.id}
-                        type="button"
-                        onClick={() => setBestSellerIndex(index)}
-                        aria-label={`Lihat ${product.name}`}
-                        className={`
-                          h-2 rounded-full transition-all duration-300
-                          ${
-                            bestSellerIndex === index
-                              ? "w-7 bg-[#40551F]"
-                              : "w-2 bg-[#D8C9BA]"
-                          }
-                        `}
-                      />
-                    ))}
-                  </div>
-
-                </div>
+              ))
+            ) : (
+              <div className="flex min-h-[300px] w-full items-center justify-center rounded-[30px] bg-[#E4D5C4] text-7xl">
+                ☕
               </div>
-            </div>
-          </section>
+            )}
+          </div>
+        </div>
+
+        {/* PREVIOUS BUTTON */}
+        {heroProducts.length > 1 && (
+          <button
+            type="button"
+            onClick={prevBestSeller}
+            aria-label="Produk sebelumnya"
+            className="
+              absolute left-3 top-1/2 z-10
+              flex h-10 w-10 -translate-y-1/2
+              items-center justify-center
+              rounded-full
+              bg-white/90
+              text-lg text-[#261C17]
+              shadow-lg
+              backdrop-blur
+              transition
+              hover:scale-105
+              hover:bg-white
+              active:scale-95
+            "
+          >
+            ←
+          </button>
+        )}
+
+        {/* NEXT BUTTON */}
+        {heroProducts.length > 1 && (
+          <button
+            type="button"
+            onClick={nextBestSeller}
+            aria-label="Produk berikutnya"
+            className="
+              absolute right-3 top-1/2 z-10
+              flex h-10 w-10 -translate-y-1/2
+              items-center justify-center
+              rounded-full
+              bg-white/90
+              text-lg text-[#261C17]
+              shadow-lg
+              backdrop-blur
+              transition
+              hover:scale-105
+              hover:bg-white
+              active:scale-95
+            "
+          >
+            →
+          </button>
+        )}
+
+        {/* DOT INDICATOR */}
+        {heroProducts.length > 1 && (
+          <div className="mt-4 flex justify-center gap-2">
+            {heroProducts.map((product, index) => (
+              <button
+                key={product.id}
+                type="button"
+                onClick={() => setBestSellerIndex(index)}
+                aria-label={`Lihat ${product.name}`}
+                className={`
+                  h-2 rounded-full transition-all duration-300
+                  ${
+                    bestSellerIndex === index
+                      ? "w-7 bg-[#40551F]"
+                      : "w-2 bg-[#D8C9BA]"
+                  }
+                `}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+</section>
 
       {/* =====================================================
           FEATURES
