@@ -4,7 +4,7 @@ import {
   useEffect,
   useRef,
   useState,
-  type MouseEvent,
+  type PointerEvent,
 } from "react";
 import Link from "next/link";
 import {
@@ -70,6 +70,69 @@ export default function Home() {
 
   const cartButtonRef = useRef<HTMLButtonElement>(null);
 
+  // =======================================================
+  // BEST SELLER CAROUSEL
+  // =======================================================
+
+  const [bestSellerIndex, setBestSellerIndex] = useState(0);
+
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStartX, setDragStartX] = useState(0);
+
+  const nextBestSeller = () => {
+    setBestSellerIndex((current) =>
+      current >= heroProducts.length - 1
+        ? 0
+        : current + 1
+    );
+  };
+
+  const prevBestSeller = () => {
+    setBestSellerIndex((current) =>
+      current <= 0
+        ? heroProducts.length - 1
+        : current - 1
+    );
+  };
+
+  useEffect(() => {
+  if (heroProducts.length <= 1 || isDragging) return;
+
+  const timer = setInterval(() => {
+    setBestSellerIndex((current) =>
+      current >= heroProducts.length - 1
+        ? 0
+        : current + 1
+    );
+  }, 3000);
+
+  return () => clearInterval(timer);
+}, [heroProducts.length, isDragging]);
+
+  const handleDragStart = (
+    event: PointerEvent<HTMLDivElement>
+  ) => {
+    setIsDragging(true);
+    setDragStartX(event.clientX);
+  };
+
+  const handleDragEnd = (
+    event: PointerEvent<HTMLDivElement>
+  ) => {
+    if (!isDragging) return;
+
+    const dragDistance = event.clientX - dragStartX;
+
+    if (dragDistance < -50) {
+      nextBestSeller();
+    }
+
+    if (dragDistance > 50) {
+      prevBestSeller();
+    }
+
+    setIsDragging(false);
+  };
   // =======================================================
   // LOAD PRODUCTS
   // =======================================================
@@ -886,53 +949,193 @@ export default function Home() {
                 </div>
 
                 {/* BEST SELLER PRODUCTS */}
+                  <div className="relative">
 
-                <div
-                  className="
-                    w-full
-                    min-w-0
-                    overflow-x-scroll
-                    overflow-y-hidden
-                    touch-pan-x
-                    overscroll-x-contain
-                    snap-x
-                    snap-mandatory
-                    pb-4
-                    [-webkit-overflow-scrolling:touch]
-                    scrollbar-hide
-                    md:grid
-                    md:grid-cols-3
-                    md:overflow-visible
-                    md:pb-0
-                  "
-                >
-                  <div className="flex w-max gap-4 md:w-full">
-                    {heroProducts.length > 0 ? (
-                      heroProducts.map((product) => (
-                        <div
-                          key={product.id}
-                          className="
-                            w-[82vw]
-                            min-w-[82vw]
-                            shrink-0
-                            snap-start
-                            md:w-auto
-                            md:min-w-0
-                            md:flex-1
-                          "
-                        >
-                          <ProductCard
-                            product={product}
-                            compact
+                    {/* CAROUSEL */}
+                    <div
+                      className={`
+                        overflow-hidden rounded-[30px]
+                        select-none
+                        touch-pan-y
+                        ${isDragging ? "cursor-grabbing" : "cursor-grab"}
+                      `}
+                      onPointerDown={handleDragStart}
+                      onPointerUp={handleDragEnd}
+                      onPointerCancel={() => setIsDragging(false)}
+                      onPointerLeave={(event) => {
+                        if (isDragging) {
+                          handleDragEnd(event);
+                        }
+                      }}
+                    >
+
+                      <div
+                        className="flex transition-transform duration-700 ease-out"
+                        style={{
+                          transform: `translateX(-${bestSellerIndex * 100}%)`,
+                        }}
+                      >
+                        {heroProducts.length > 0 ? (
+                          heroProducts.map((product) => (
+                            <div
+                              key={product.id}
+                              className="w-full min-w-full shrink-0"
+                            >
+                              <ProductCard
+                                product={product}
+                                compact
+                              />
+                            </div>
+                          ))
+                        ) : (
+                          <div className="flex min-h-[300px] w-full items-center justify-center rounded-[30px] bg-[#E4D5C4] text-7xl">
+                            ☕
+                          </div>
+                        )}
+                      </div>
+
+                    </div>
+
+                    {/* PREV BUTTON */}
+                    {heroProducts.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={prevBestSeller}
+                        aria-label="Produk sebelumnya"
+                        className="
+                          absolute left-3 top-1/2 z-10
+                          flex h-10 w-10 -translate-y-1/2
+                          items-center justify-center
+                          rounded-full
+                          bg-white/90
+                          text-lg text-[#261C17]
+                          shadow-lg
+                          backdrop-blur
+                          transition
+                          hover:scale-105
+                          hover:bg-white
+                          active:scale-95
+                        "
+                      >
+                        ←
+                      </button>
+                    )}
+
+                    {/* NEXT BUTTON */}
+                    {heroProducts.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={nextBestSeller}
+                        aria-label="Produk berikutnya"
+                        className="
+                          absolute right-3 top-1/2 z-10
+                          flex h-10 w-10 -translate-y-1/2
+                          items-center justify-center
+                          rounded-full
+                          bg-white/90
+                          text-lg text-[#261C17]
+                          shadow-lg
+                          backdrop-blur
+                          transition
+                          hover:scale-105
+                          hover:bg-white
+                          active:scale-95
+                        "
+                      >
+                        →
+                      </button>
+                    )}
+
+                    {/* DOT INDICATOR */}
+                    {heroProducts.length > 1 && (
+                      <div className="mt-4 flex justify-center gap-2">
+                        {heroProducts.map((product, index) => (
+                          <button
+                            key={product.id}
+                            type="button"
+                            onClick={() => setBestSellerIndex(index)}
+                            aria-label={`Lihat produk ${index + 1}`}
+                            className={`
+                              h-2 rounded-full transition-all duration-300
+                              ${
+                                index === bestSellerIndex
+                                  ? "w-6 bg-[#40551F]"
+                                  : "w-2 bg-[#CDBEAE]"
+                              }
+                            `}
                           />
-                        </div>
-                      ))
-                    ) : (
-                      <div className="flex min-h-[300px] w-[82vw] items-center justify-center rounded-[30px] bg-[#E4D5C4] text-7xl md:col-span-3">
-                        ☕
+                        ))}
                       </div>
                     )}
+
                   </div>
+
+                  {/* PREVIOUS */}
+                  <button
+                    type="button"
+                    onClick={prevBestSeller}
+                    aria-label="Best seller sebelumnya"
+                    className="
+                      absolute left-3 top-1/2 z-10
+                      flex h-10 w-10
+                      -translate-y-1/2
+                      items-center justify-center
+                      rounded-full
+                      bg-white/95
+                      text-lg
+                      font-bold
+                      text-[#261C17]
+                      shadow-lg
+                      transition
+                      hover:scale-105
+                    "
+                  >
+                    ←
+                  </button>
+
+                  {/* NEXT */}
+                  <button
+                    type="button"
+                    onClick={nextBestSeller}
+                    aria-label="Best seller berikutnya"
+                    className="
+                      absolute right-3 top-1/2 z-10
+                      flex h-10 w-10
+                      -translate-y-1/2
+                      items-center justify-center
+                      rounded-full
+                      bg-white/95
+                      text-lg
+                      font-bold
+                      text-[#261C17]
+                      shadow-lg
+                      transition
+                      hover:scale-105
+                    "
+                  >
+                    →
+                  </button>
+
+                  {/* INDICATOR */}
+                  <div className="mt-4 flex justify-center gap-2">
+                    {heroProducts.map((product, index) => (
+                      <button
+                        key={product.id}
+                        type="button"
+                        onClick={() => setBestSellerIndex(index)}
+                        aria-label={`Lihat ${product.name}`}
+                        className={`
+                          h-2 rounded-full transition-all duration-300
+                          ${
+                            bestSellerIndex === index
+                              ? "w-7 bg-[#40551F]"
+                              : "w-2 bg-[#D8C9BA]"
+                          }
+                        `}
+                      />
+                    ))}
+                  </div>
+
                 </div>
               </div>
             </div>
