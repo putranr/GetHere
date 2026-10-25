@@ -90,6 +90,7 @@ export default function CheckoutPage() {
             name: item.name,
             price: item.price,
             quantity: item.quantity,
+            packaging: item.packaging,
           })),
         }),
       });
@@ -582,30 +583,30 @@ export default function CheckoutPage() {
                         </div>
 
                         {/* QUANTITY */}
-                        <div className="mt-3 flex items-center gap-3">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              decreaseQuantity(item.id)
-                            }
-                            className="flex h-9 w-9 items-center justify-center rounded-full border border-[#D8C9BA] bg-[#F3EEE8] text-lg font-bold text-[#211A16] transition hover:bg-[#E7DED4]"
-                          >
-                            −
-                          </button>
+                      <div className="mt-3 flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            decreaseQuantity(item.id)
+                          }
+                          className="flex h-9 w-9 items-center justify-center rounded-full border border-[#D8C9BA] bg-[#F3EEE8] text-lg font-bold text-[#211A16] transition hover:bg-[#E7DED4]"
+                        >
+                          −
+                        </button>
 
-                          <span className="w-5 text-center font-bold text-[#211A16]">
-                            {item.quantity}
-                          </span>
+                        <span className="w-5 text-center font-bold text-[#211A16]">
+                          {item.quantity}
+                        </span>
 
-                          <button
-                            type="button"
-                            onClick={() =>
-                              increaseQuantity(item.id)
-                            }
-                            className="flex h-9 w-9 items-center justify-center rounded-full border border-[#D8C9BA] bg-[#F3EEE8] text-lg font-bold text-[#211A16] transition hover:bg-[#E7DED4]"
-                          >
-                            +
-                          </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            increaseQuantity(item.id)
+                          }
+                          className="flex h-9 w-9 items-center justify-center rounded-full border border-[#D8C9BA] bg-[#F3EEE8] text-lg font-bold text-[#211A16] transition hover:bg-[#E7DED4]"
+                        >
+                          +
+                        </button>
 
                         </div>
 
