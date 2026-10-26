@@ -4,6 +4,10 @@ import Link from "next/link";
 import { useState } from "react";
 import Script from "next/script";
 import { useCart } from "../context/CartContext";
+import {
+  BottlePackagingIcon,
+  CupPackagingIcon,
+} from "@/components/PackagingIcons";
 
 declare global {
   interface Window {
@@ -200,13 +204,17 @@ export default function CheckoutPage() {
   const checkoutHeader = (
     <header className="border-b border-[#E5E5E1] bg-white">
       <div className="mx-auto flex max-w-[1240px] items-center justify-between gap-4 px-5 py-4 sm:px-8">
-        <Link href="/" className="shrink-0" aria-label="GetHere beranda">
-          <span className="block text-[25px] font-black leading-none tracking-[-0.07em] text-[#111111]">
-            GetHere
-          </span>
-          <span className="mt-1 block text-[8px] font-semibold tracking-[0.02em] text-[#686862]">
-            Together, We Get Here.
-          </span>
+        <Link
+          href="/"
+          aria-label="GetHere — Together, We Get Here."
+          className="flex shrink-0 items-center"
+        >
+          <img
+            src="/GetHere_Logo.png"
+            alt="GetHere — Together, We Get Here."
+            className="h-auto w-[145px] object-contain sm:w-[165px]"
+            draggable={false}
+          />
         </Link>
 
         <nav className="hidden items-center gap-7 text-sm font-medium text-[#33332F] md:flex">
@@ -299,40 +307,6 @@ export default function CheckoutPage() {
             <p className="mt-3 max-w-xl text-sm leading-6 text-[#696963] sm:text-base">
               Isi informasi pengiriman dan periksa kembali pesananmu sebelum melanjutkan pembayaran.
             </p>
-          </div>
-
-          {/* CHECKOUT STEPS */}
-          <div className="mb-8 rounded-2xl border border-[#E3E3DE] bg-white px-4 py-5 sm:px-7">
-            <div className="mx-auto grid max-w-3xl grid-cols-3">
-              <div className="relative flex flex-col items-center text-center">
-                <span className="absolute left-1/2 top-4 h-px w-full bg-[#171717]" />
-                <span className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-[#171717] text-xs font-bold text-white ring-4 ring-white">
-                  1
-                </span>
-                <span className="mt-2 text-[11px] font-bold text-[#171717] sm:text-sm">
-                  Pengiriman
-                </span>
-              </div>
-              <div className="relative flex flex-col items-center text-center">
-                <span className="absolute right-1/2 top-4 h-px w-full bg-[#DADAD5]" />
-                <span className="absolute left-1/2 top-4 h-px w-full bg-[#DADAD5]" />
-                <span className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full border border-[#DADAD5] bg-white text-xs font-bold text-[#777770] ring-4 ring-white">
-                  2
-                </span>
-                <span className="mt-2 text-[11px] font-medium text-[#777770] sm:text-sm">
-                  Pembayaran
-                </span>
-              </div>
-              <div className="relative flex flex-col items-center text-center">
-                <span className="absolute right-1/2 top-4 h-px w-full bg-[#DADAD5]" />
-                <span className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full border border-[#DADAD5] bg-white text-xs font-bold text-[#777770] ring-4 ring-white">
-                  3
-                </span>
-                <span className="mt-2 text-[11px] font-medium text-[#777770] sm:text-sm">
-                  Selesai
-                </span>
-              </div>
-            </div>
           </div>
 
           <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(360px,0.75fr)] lg:gap-8">
@@ -430,29 +404,40 @@ export default function CheckoutPage() {
             {/* ORDER SUMMARY */}
             <aside className="lg:sticky lg:top-6">
               <section className="overflow-hidden rounded-[26px] border border-[#E3E3DE] bg-white shadow-[0_10px_35px_rgba(0,0,0,0.025)]">
+                {/* HEADER */}
                 <div className="flex items-start justify-between gap-4 border-b border-[#EEEEEA] px-5 py-5 sm:px-6 sm:py-7">
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-[#777770]">
                       Order Summary
                     </p>
+
                     <h2 className="mt-2 text-2xl font-black tracking-tight">
                       Pesanan Kamu
                     </h2>
                   </div>
+
                   <span className="rounded-full border border-[#DADAD5] px-3 py-1.5 text-xs font-bold text-[#33332F]">
                     {totalQuantity} item
                   </span>
                 </div>
 
+                {/* PRODUCT LIST */}
                 <div className="space-y-5 px-5 py-5 sm:px-6">
                   {cart.map((item) => {
                     const originalPrice = item.originalPrice ?? item.price;
                     const finalPrice = item.finalPrice ?? item.price;
-                    const discountAmount = Math.max(originalPrice - finalPrice, 0);
+                    const discountAmount = Math.max(
+                      originalPrice - finalPrice,
+                      0
+                    );
                     const totalItemDiscount = discountAmount * item.quantity;
-                    const hasDiscount = originalPrice > finalPrice && (item.discountPercent ?? 0) > 0;
+                    const hasDiscount =
+                      originalPrice > finalPrice &&
+                      (item.discountPercent ?? 0) > 0;
+
                     const productImage = item.image;
-                    const packagingLabel = item.packaging === "BOTTLE" ? "Bottle" : "Cup";
+                    const packagingLabel =
+                      item.packaging === "BOTTLE" ? "Bottle" : "Cup";
 
                     return (
                       <article
@@ -460,6 +445,7 @@ export default function CheckoutPage() {
                         className="border-b border-[#EEEEEA] pb-5 last:border-b-0 last:pb-0"
                       >
                         <div className="flex items-start gap-3.5">
+                          {/* PRODUCT IMAGE */}
                           <div className="flex h-[76px] w-[76px] shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#F0F0EC]">
                             {productImage ? (
                               <img
@@ -468,34 +454,54 @@ export default function CheckoutPage() {
                                 className="h-full w-full object-cover"
                               />
                             ) : (
-                              <span className="text-3xl" aria-hidden="true">
-                                {item.packaging === "BOTTLE" ? "🧴" : "🥤"}
-                              </span>
+                              <div className="flex h-full w-full items-center justify-center text-[#171717]">
+                                {item.packaging === "BOTTLE" ? (
+                                  <BottlePackagingIcon className="h-9 w-9" />
+                                ) : (
+                                  <CupPackagingIcon className="h-9 w-9" />
+                                )}
+                              </div>
                             )}
                           </div>
 
+                          {/* PRODUCT INFORMATION */}
                           <div className="min-w-0 flex-1">
                             <h3 className="break-words text-sm font-bold leading-5 text-[#171717]">
                               {item.name}
                             </h3>
-                            <span className="mt-1.5 inline-flex items-center rounded-full bg-[#F1F1ED] px-2.5 py-1 text-[10px] font-bold text-[#4F4F49]">
-                              {packagingLabel === "Bottle" ? "🧴" : "🥤"} <span className="ml-1">{packagingLabel}</span>
+
+                            {/* PACKAGING BADGE */}
+                            <span className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-[#F0F0EE] px-2.5 py-1 text-xs font-medium text-[#171717]">
+                              {item.packaging === "BOTTLE" ? (
+                                <BottlePackagingIcon className="h-3.5 w-3.5 shrink-0" />
+                              ) : (
+                                <CupPackagingIcon className="h-3.5 w-3.5 shrink-0" />
+                              )}
+
+                              {packagingLabel}
                             </span>
+
+                            {/* DISCOUNT INFORMATION */}
                             <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
                               {hasDiscount && (
                                 <span className="text-xs text-[#85857E] line-through">
                                   Rp {money(originalPrice)}
                                 </span>
                               )}
+
                               {hasDiscount && (
                                 <span className="rounded-full bg-[#171717] px-2 py-0.5 text-[10px] font-bold text-white">
                                   -{item.discountPercent}%
                                 </span>
                               )}
                             </div>
+
+                            {/* UNIT PRICE */}
                             <p className="mt-1 text-sm font-bold text-[#171717]">
                               Rp {money(finalPrice)}
                             </p>
+
+                            {/* SAVINGS */}
                             {hasDiscount && (
                               <p className="mt-1 text-[11px] font-medium text-[#666660]">
                                 Hemat Rp {money(totalItemDiscount)}
@@ -503,29 +509,44 @@ export default function CheckoutPage() {
                             )}
                           </div>
 
+                          {/* TOTAL PRICE PER PRODUCT */}
                           <p className="shrink-0 whitespace-nowrap text-sm font-bold text-[#171717]">
                             Rp {money(finalPrice * item.quantity)}
                           </p>
                         </div>
 
+                        {/* QUANTITY CONTROLS */}
                         <div className="mt-4 flex items-center justify-between gap-3">
-                          <span className="text-xs text-[#777770]">Jumlah</span>
+                          <span className="text-xs text-[#777770]">
+                            Jumlah
+                          </span>
+
                           <div className="flex items-center gap-3 rounded-full border border-[#DADAD5] bg-white p-1">
+                            {/* DECREASE */}
                             <button
                               type="button"
                               aria-label={`Kurangi ${item.name} kemasan ${packagingLabel}`}
-                              onClick={() => decreaseQuantity(item.id, item.packaging)}
-                              className="flex h-8 w-8 items-center justify-center rounded-full bg-[#F0F0EC] text-lg font-semibold text-[#171717] transition hover:bg-[#DCDCD6] active:scale-95"
+                              onClick={() =>
+                                decreaseQuantity(item.id, item.packaging)
+                              }
+                              disabled={item.quantity <= 1}
+                              className="flex h-8 w-8 items-center justify-center rounded-full bg-[#F0F0EC] text-lg font-semibold text-[#171717] transition hover:bg-[#DCDCD6] active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
                             >
                               −
                             </button>
+
+                            {/* QUANTITY */}
                             <span className="min-w-4 text-center text-sm font-bold tabular-nums">
                               {item.quantity}
                             </span>
+
+                            {/* INCREASE */}
                             <button
                               type="button"
                               aria-label={`Tambah ${item.name} kemasan ${packagingLabel}`}
-                              onClick={() => increaseQuantity(item.id, item.packaging)}
+                              onClick={() =>
+                                increaseQuantity(item.id, item.packaging)
+                              }
                               className="flex h-8 w-8 items-center justify-center rounded-full bg-[#171717] text-lg font-semibold text-white transition hover:bg-[#383833] active:scale-95"
                             >
                               +

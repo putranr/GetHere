@@ -1,6 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  BottlePackagingIcon,
+  CoffeeMugIcon,
+  CupPackagingIcon,
+} from "@/components/PackagingIcons";
 
 type Packaging = "CUP" | "BOTTLE";
 

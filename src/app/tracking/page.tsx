@@ -165,11 +165,16 @@ export default function TrackingPage() {
       {/* NAVIGATION */}
       <header className="sticky top-0 z-30 border-b border-black/10 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-3.5 sm:px-8">
-          <Link href="/" aria-label="GetHere beranda" className="shrink-0">
+          <Link
+            href="/"
+            aria-label="GetHere — Together, We Get Here."
+            className="flex shrink-0 items-center"
+          >
             <img
-              src="/images/gethere-logo.png"
+              src="/GetHere_Logo.png"
               alt="GetHere — Together, We Get Here."
-              className="h-10 w-[145px] object-contain object-left sm:h-12 sm:w-[175px]"
+              className="h-auto w-[145px] object-contain sm:w-[165px]"
+              draggable={false}
             />
           </Link>
 
