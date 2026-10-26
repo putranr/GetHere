@@ -60,6 +60,8 @@ export default function Home() {
 
   const [products, setProducts] = useState<Product[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
+  const [selectedPackagingByProduct, setSelectedPackagingByProduct] =
+    useState<Record<number, Packaging>>({});
 
   // =======================================================
   // CATEGORY
@@ -76,7 +78,11 @@ export default function Home() {
     (product) => isNonCoffee(product)
   );
 
-  const heroProducts = coffeeProducts.slice(0, 3);
+  // Visual hero and featured products use images already saved for products.
+  const heroVisualProduct = coffeeProducts[0] ?? products[0];
+  const bestSellerProducts = (
+    coffeeProducts.length > 0 ? coffeeProducts : products
+  ).slice(0, 4);
 
   // =======================================================
   // UI
@@ -88,79 +94,6 @@ export default function Home() {
   const cartButtonRef =
     useRef<HTMLButtonElement>(null);
 
-  // =======================================================
-  // BEST SELLER CAROUSEL
-  // =======================================================
-
-  const [bestSellerIndex, setBestSellerIndex] =
-    useState(0);
-
-  const [isDragging, setIsDragging] =
-    useState(false);
-
-  const [dragStartX, setDragStartX] =
-    useState(0);
-
-  const nextBestSeller = () => {
-    setBestSellerIndex((current) =>
-      current >= heroProducts.length - 1
-        ? 0
-        : current + 1
-    );
-  };
-
-  const prevBestSeller = () => {
-    setBestSellerIndex((current) =>
-      current <= 0
-        ? heroProducts.length - 1
-        : current - 1
-    );
-  };
-
-  useEffect(() => {
-    if (
-      heroProducts.length <= 1 ||
-      isDragging
-    ) {
-      return;
-    }
-
-    const timer = setInterval(() => {
-      setBestSellerIndex((current) =>
-        current >= heroProducts.length - 1
-          ? 0
-          : current + 1
-      );
-    }, 3000);
-
-    return () => clearInterval(timer);
-  }, [heroProducts.length, isDragging]);
-
-  const handleDragStart = (
-    event: PointerEvent<HTMLDivElement>
-  ) => {
-    setIsDragging(true);
-    setDragStartX(event.clientX);
-  };
-
-  const handleDragEnd = (
-    event: PointerEvent<HTMLDivElement>
-  ) => {
-    if (!isDragging) return;
-
-    const dragDistance =
-      event.clientX - dragStartX;
-
-    if (dragDistance < -50) {
-      nextBestSeller();
-    }
-
-    if (dragDistance > 50) {
-      prevBestSeller();
-    }
-
-    setIsDragging(false);
-  };
   // =======================================================
   // LOAD PRODUCTS
   // =======================================================
@@ -421,66 +354,28 @@ export default function Home() {
     product: Product;
     compact?: boolean;
   }) => {
-    const [packaging, setPackaging] =
-      useState<Packaging>(
-        product.cupPrice != null
-          ? "CUP"
-          : "BOTTLE"
-      );
+    const packaging: Packaging =
+      selectedPackagingByProduct[product.id] ??
+      (product.cupPrice != null ? "CUP" : "BOTTLE");
 
-    const selectedOriginalPrice =
-      getPackagingPrice(
-        product,
-        packaging
-      );
+    const selectedOriginalPrice = getPackagingPrice(
+      product,
+      packaging
+    );
+    const finalPrice = getFinalPrice(product, packaging);
 
-    const finalPrice =
-      getFinalPrice(
-        product,
-        packaging
-      );
-
-    const handlePackagingChange = (
-      selectedPackaging: Packaging
-    ) => {
-      const selectedPrice =
-        getPackagingPrice(
-          product,
-          selectedPackaging
-        );
-
-      if (
-        selectedPackaging === "BOTTLE" &&
-        selectedPrice === null
-      ) {
-        return;
-      }
-
-      setPackaging(
-        selectedPackaging
-      );
+    const handlePackagingChange = (selected: Packaging) => {
+      if (getPackagingPrice(product, selected) === null) return;
+      setSelectedPackagingByProduct((current) => ({
+        ...current,
+        [product.id]: selected,
+      }));
     };
 
-    const handleAddToCart = (
-      event: PointerEvent<HTMLButtonElement>
-    ) => {
-      if (
-        selectedOriginalPrice === null ||
-        finalPrice === null
-      ) {
-        return;
-      }
+    const handleAddToCart = (event: PointerEvent<HTMLButtonElement>) => {
+      if (selectedOriginalPrice === null || finalPrice === null) return;
 
       animateToCart(event);
-
-      /*
-       * CartContext yang sekarang menghitung
-       * originalPrice + finalPrice sendiri
-       * berdasarkan packaging.
-       *
-       * Gambar cart nanti diambil dari
-       * products yang sudah dimuat di page ini.
-       */
       addToCart({
         id: product.id,
         name: product.name,
@@ -493,275 +388,131 @@ export default function Home() {
       });
     };
 
+    const packagingPriceLabel = (price: number | null | undefined) => {
+      if (price == null) return "Tidak tersedia";
+      const discounted = Math.round(
+        price * (100 - (product.discountPercent ?? 0)) / 100
+      );
+      return `Rp${discounted.toLocaleString("id-ID")}`;
+    };
+
     return (
       <div
-        className={`product-card group flex h-full flex-col overflow-hidden rounded-[26px] border border-[#E7DED4] bg-white shadow-[0_8px_30px_rgba(45,30,20,0.06)] transition duration-300 hover:-translate-y-2 hover:shadow-[0_18px_45px_rgba(45,30,20,0.13)] ${
-          compact ? "w-full" : ""
-        }`}
+        className="product-card group flex h-full w-full flex-col overflow-hidden rounded-[22px] border border-[#E4E4E1] bg-white shadow-[0_6px_24px_rgba(25,20,16,0.06)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_14px_36px_rgba(25,20,16,0.12)]"
       >
-        {/* IMAGE */}
-
+        {/* FOTO PRODUK: tetap menggunakan image yang tersimpan di database */}
         <div
           data-product-image
-         className={`relative flex shrink-0 items-center justify-center overflow-hidden bg-[#E4D5C4] ${
-           compact
-            ? "h-[90px] sm:h-[120px]"
-            : "h-[220px] sm:h-[245px]"
+          className={`relative flex shrink-0 items-center justify-center overflow-hidden bg-[#E7E7E3] ${
+            compact ? "h-[145px] sm:h-[165px]" : "h-[180px] sm:h-[205px]"
           }`}
-        >   
+        >
           {product.image ? (
             <img
               src={product.image}
               alt={product.name}
-              className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
+              className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.03]"
               onError={(event) => {
-                event.currentTarget.style.display =
-                  "none";
-
-                const fallback =
-                  event.currentTarget.parentElement?.querySelector(
-                    "[data-image-fallback]"
-                  ) as HTMLElement | null;
-
-                if (fallback) {
-                  fallback.style.display =
-                    "flex";
-                }
+                event.currentTarget.style.display = "none";
+                const fallback = event.currentTarget.parentElement?.querySelector(
+                  "[data-image-fallback]"
+                ) as HTMLElement | null;
+                if (fallback) fallback.style.display = "flex";
               }}
             />
           ) : null}
-
           <div
             data-image-fallback
-            className={`absolute inset-0 items-center justify-center text-7xl ${
-              product.image
-                ? "hidden"
-                : "flex"
+            className={`absolute inset-0 items-center justify-center text-6xl ${
+              product.image ? "hidden" : "flex"
             }`}
           >
             ☕
           </div>
 
           {product.discountPercent > 0 && (
-            <div className="absolute left-4 top-4 rounded-full bg-[#6D321B] px-3 py-1.5 text-xs font-bold text-white shadow-lg">
+            <span className="absolute left-3 top-3 rounded-full bg-[#171717] px-3 py-1 text-[11px] font-bold text-white">
               -{product.discountPercent}%
-            </div>
+            </span>
           )}
-
-          <button
-            type="button"
-            className={`absolute flex items-center justify-center rounded-full bg-white/90 shadow-sm backdrop-blur transition hover:scale-110 ${
-              compact
-                ? "right-3 top-3 h-7 w-7 text-sm"
-                : "right-4 top-4 h-9 w-9 text-lg"
-            }`}
-            >
-            ♡
-          </button>
-
         </div>
 
-        {/* INFO */}
-
-        <div
-          className={`flex flex-1 flex-col ${
-            compact
-            ? "p-3 sm:p-4"
-            : "p-5 sm:p-6"  
-          }`}
-        >
-          <div className="mb-2">
-            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#8A6348]">
-              {isNonCoffee(product)
-                ? "Non Coffee"
-                : "Coffee"}
-            </span>
-          </div>
-
-          <h3
-            className={`font-bold tracking-tight text-[#261C17] ${
-              compact
-                ? "text-base sm:text-xl"
-                : "text-xl"
-            }`}
-          >
+        <div className={`flex flex-1 flex-col ${compact ? "p-3 sm:p-4" : "p-4 sm:p-5"}`}>
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#666660]">
+            {isNonCoffee(product) ? "Non Coffee" : "Coffee"}
+          </p>
+          <h3 className={`mt-1.5 font-bold tracking-tight text-[#111111] ${compact ? "text-base" : "text-lg"}`}>
             {product.name}
           </h3>
-
-          <p
-            className={`mt-2 text-sm leading-6 text-[#756B63] ${
-              compact
-                ? "line-clamp-1 min-h-0 text-[11px] leading-4"
-                : "min-h-[44px]"
-            }`}
-          >
-            {product.description ||
-              "Minuman pilihan Get-Here untuk menemani setiap momen."}
+          <p className={`mt-1.5 text-xs leading-5 text-[#666660] ${compact ? "line-clamp-2 min-h-[40px]" : "min-h-[40px]"}`}>
+            {product.description || "Minuman pilihan GetHere untuk menemani setiap momen."}
           </p>
 
-          {/* PACKAGING */}
-
-          <div className={compact ? "mt-2" : "mt-5"}>
-            <p className="mb-2 text-xs font-bold text-[#4D4037]">
-              Pilih Kemasan
-            </p>
-
+          <div className={compact ? "mt-3" : "mt-4"}>
+            <p className="mb-2 text-[11px] font-bold text-[#4D4D48]">Pilih Kemasan</p>
             <div className="grid grid-cols-2 gap-2">
-              {/* CUP */}
-
               <button
                 type="button"
-                onClick={() =>
-                  handlePackagingChange(
-                    "CUP"
-                  )
-                }
-                disabled={
-                  product.cupPrice == null
-                }
-                className={`relative rounded-2xl border text-left transition ${
-                  compact ? "p-2" : "p-3"
-                } ${
+                onClick={() => handlePackagingChange("CUP")}
+                disabled={product.cupPrice == null}
+                aria-pressed={packaging === "CUP"}
+                className={`relative min-w-0 rounded-xl border p-2.5 text-left transition ${
                   packaging === "CUP"
-                    ? "border-[#40551F] bg-[#F2F5EA] shadow-sm"
-                    : "border-[#E2D8CD] bg-white hover:border-[#B7A999]"
-                } ${
-                  product.cupPrice == null
-                    ? "cursor-not-allowed opacity-40"
-                    : ""
-                }`}
+                    ? "border-[#171717] bg-[#F2F2EF]"
+                    : "border-[#DCDCD8] bg-white hover:border-[#666660]"
+                } ${product.cupPrice == null ? "cursor-not-allowed opacity-40" : ""}`}
               >
-                {packaging === "CUP" &&
-                  product.cupPrice != null && (
-                    <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-[#40551F] text-[10px] font-bold text-white">
-                      ✓
-                    </span>
-                  )}
-
-                <div className={compact ? "text-base" : "text-lg"}>
-                  🥤
-                </div>
-
-                <p className="mt-1 text-xs font-bold text-[#261C17]">
-                  Cup
-                </p>
-
-                <p className="mt-0.5 text-xs font-semibold text-[#6D321B]">
-                  {product.cupPrice != null
-                    ? `Rp${Math.round(
-                        product.cupPrice -
-                          (product.cupPrice *
-                            product.discountPercent) /
-                            100
-                      ).toLocaleString(
-                        "id-ID"
-                      )}`
-                    : "Tidak tersedia"}
-                </p>
+                {packaging === "CUP" && product.cupPrice != null && (
+                  <span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-[#171717] text-[9px] font-bold text-white">✓</span>
+                )}
+                <span className="block text-base">🥤</span>
+                <span className="mt-1 block text-xs font-bold text-[#111111]">Cup</span>
+                <span className="mt-0.5 block text-[11px] font-semibold text-[#52524D]">
+                  {packagingPriceLabel(product.cupPrice ?? product.price)}
+                </span>
               </button>
 
-              {/* BOTTLE */}
-
               <button
                 type="button"
-                onClick={() =>
-                  handlePackagingChange(
-                    "BOTTLE"
-                  )
-                }
-                disabled={
-                  product.bottlePrice == null
-                }
-                className={`relative rounded-2xl border text-left transition ${
-                  compact ? "p-2" : "p-3"
-                } ${
+                onClick={() => handlePackagingChange("BOTTLE")}
+                disabled={product.bottlePrice == null}
+                aria-pressed={packaging === "BOTTLE"}
+                className={`relative min-w-0 rounded-xl border p-2.5 text-left transition ${
                   packaging === "BOTTLE"
-                    ? "border-[#40551F] bg-[#F2F5EA] shadow-sm"
-                    : "border-[#E2D8CD] bg-white hover:border-[#B7A999]"
-                } ${
-                  product.bottlePrice == null
-                    ? "cursor-not-allowed opacity-40"
-                    : ""
-                }`}
+                    ? "border-[#171717] bg-[#F2F2EF]"
+                    : "border-[#DCDCD8] bg-white hover:border-[#666660]"
+                } ${product.bottlePrice == null ? "cursor-not-allowed opacity-40" : ""}`}
               >
-                {packaging === "BOTTLE" &&
-                  product.bottlePrice != null && (
-                    <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-[#40551F] text-[10px] font-bold text-white">
-                      ✓
-                    </span>
-                  )}
-
-                <div className={compact ? "text-base" : "text-lg"}>
-                  🧴
-                </div>
-
-                <p className="mt-1 text-xs font-bold text-[#261C17]">
-                  Bottle
-                </p>
-
-                <p className="mt-0.5 text-xs font-semibold text-[#6D321B]">
-                  {product.bottlePrice != null
-                    ? `Rp${Math.round(
-                        product.bottlePrice -
-                          (product.bottlePrice *
-                            product.discountPercent) /
-                            100
-                      ).toLocaleString(
-                        "id-ID"
-                      )}`
-                    : "Tidak tersedia"}
-                </p>
+                {packaging === "BOTTLE" && product.bottlePrice != null && (
+                  <span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-[#171717] text-[9px] font-bold text-white">✓</span>
+                )}
+                <span className="block text-base">🧴</span>
+                <span className="mt-1 block text-xs font-bold text-[#111111]">Bottle</span>
+                <span className="mt-0.5 block text-[11px] font-semibold text-[#52524D]">
+                  {packagingPriceLabel(product.bottlePrice)}
+                </span>
               </button>
             </div>
           </div>
 
-          {/* PRICE */}
-
-          <div
-            className={`mt-auto ${
-              compact ? "pt-2" : "pt-5"
-            }`}
-          >
-            {product.discountPercent > 0 &&
-              selectedOriginalPrice !==
-                null && (
-                <span className="block text-xs text-[#9A8B7D] line-through">
-                  Rp
-                  {selectedOriginalPrice.toLocaleString(
-                    "id-ID"
-                  )}
-                </span>
-              )}
-
-            <div className="mt-1 flex items-center justify-between gap-3">
-              <span
-                className={`font-extrabold text-[#261C17] ${
-                  compact
-                    ? "text-base sm:text-lg"
-                    : "text-lg"
-                }`}
-              >
-                {finalPrice !== null
-                  ? `Rp${finalPrice.toLocaleString(
-                      "id-ID"
-                    )}`
-                  : "N/A"}
+          <div className="mt-auto pt-4">
+            {product.discountPercent > 0 && selectedOriginalPrice !== null && (
+              <span className="block text-xs text-[#9A8B7D] line-through">
+                Rp{selectedOriginalPrice.toLocaleString("id-ID")}
               </span>
-
+            )}
+            <div className="mt-1.5 flex items-center justify-between gap-2">
+              <span className={`font-extrabold text-[#111111] ${compact ? "text-sm sm:text-base" : "text-base sm:text-lg"}`}>
+                {finalPrice !== null ? `Rp${finalPrice.toLocaleString("id-ID")}` : "N/A"}
+              </span>
               <button
                 type="button"
-                onClick={
-                  handleAddToCart
-                }
-                disabled={
-                  finalPrice === null
-                }
-                className={`shrink-0 rounded-full bg-[#40551F] text-sm font-semibold text-white transition hover:scale-105 hover:bg-[#334517] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100 ${
-                  compact
-                    ? "px-4 py-2"
-                    : "px-5 py-2.5"
+                onClick={handleAddToCart}
+                disabled={finalPrice === null}
+                className={`shrink-0 rounded-full bg-[#171717] font-semibold text-white transition hover:scale-[1.03] hover:bg-[#3A2D25] active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 ${
+                  compact ? "px-3 py-2 text-[11px]" : "px-4 py-2.5 text-xs sm:text-sm"
                 }`}
-                >
+              >
                 + Keranjang
               </button>
             </div>
@@ -795,12 +546,12 @@ export default function Home() {
   // =======================================================
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#F8F3EC] text-[#261C17]">
+    <main className="min-h-screen overflow-x-hidden bg-[#F7F7F5] text-[#111111]">
       {/* =====================================================
           NAVBAR
       ===================================================== */}
 
-      <header className="sticky top-0 z-40 border-b border-[#E7DED4] bg-[#F8F3EC]/95 backdrop-blur-xl">
+      <header className="sticky top-0 z-40 border-b border-[#E4E4E1] bg-white/95 backdrop-blur-xl">
         <div className="mx-auto flex max-w-[1400px] items-center justify-between px-5 py-4 sm:px-8">
           <Link
             href="/"
@@ -809,7 +560,7 @@ export default function Home() {
               setMobileMenuOpen(false)
             }
           >
-            <div className="text-[24px] font-black tracking-[-0.06em] text-[#233319]">
+            <div className="text-[24px] font-black tracking-[-0.06em] text-[#111111]">
               GetHere
             </div>
 
@@ -821,37 +572,37 @@ export default function Home() {
           <nav className="hidden items-center gap-8 text-sm font-medium lg:flex">
             <a
               href="#"
-              className="transition hover:text-[#6D321B]"
+              className="transition hover:text-[#52524D]"
             >
-              Home
+              Beranda
             </a>
 
             <a
               href="#produk"
-              className="transition hover:text-[#6D321B]"
+              className="transition hover:text-[#52524D]"
             >
               Menu
             </a>
 
             <a
               href="#tentang"
-              className="transition hover:text-[#6D321B]"
+              className="transition hover:text-[#52524D]"
             >
-              About
+              Tentang
             </a>
 
             <a
               href="#kontak"
-              className="transition hover:text-[#6D321B]"
+              className="transition hover:text-[#52524D]"
             >
-              Contact
+              Kontak
             </a>
           </nav>
 
           <div className="flex items-center gap-2">
             <Link
               href="/tracking"
-              className="hidden rounded-full border border-[#D8C9BA] bg-white px-4 py-2 text-xs font-bold transition hover:border-[#40551F] hover:text-[#40551F] sm:block"
+              className="hidden rounded-full border border-[#D8C9BA] bg-white px-4 py-2 text-xs font-bold transition hover:border-[#171717] hover:text-[#171717] sm:block"
             >
               Lacak Pesanan
             </Link>
@@ -862,12 +613,12 @@ export default function Home() {
               onClick={() =>
                 setCartOpen(true)
               }
-              className="relative flex h-11 w-11 items-center justify-center rounded-full bg-[#40551F] text-xl text-white shadow-lg transition hover:scale-105"
+              className="relative flex h-11 w-11 items-center justify-center rounded-full bg-[#171717] text-xl text-white shadow-lg transition hover:scale-105"
             >
               🛒
 
               {totalItems > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#6D321B] px-1 text-[10px] font-bold text-white">
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#52524D] px-1 text-[10px] font-bold text-white">
                   {totalItems}
                 </span>
               )}
@@ -888,7 +639,7 @@ export default function Home() {
         </div>
 
         {mobileMenuOpen && (
-          <div className="border-t border-[#E7DED4] bg-[#F8F3EC] px-5 py-5 lg:hidden">
+          <div className="border-t border-[#E4E4E1] bg-white px-5 py-5 lg:hidden">
             <div className="flex flex-col gap-4 text-sm font-semibold">
               <a
                 href="#"
@@ -896,7 +647,7 @@ export default function Home() {
                   setMobileMenuOpen(false)
                 }
               >
-                Home
+                Beranda
               </a>
 
               <a
@@ -914,7 +665,7 @@ export default function Home() {
                   setMobileMenuOpen(false)
                 }
               >
-                About
+                Tentang
               </a>
 
               <Link
@@ -931,188 +682,105 @@ export default function Home() {
       </header>
 
       {/* =====================================================
-    HERO
-===================================================== */}
+          HERO
+      ===================================================== */}
+      <section className="px-5 pb-7 pt-7 sm:px-8 sm:pb-8 sm:pt-10">
+        <div className="mx-auto grid max-w-[1400px] items-stretch gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:gap-10">
+          <div className="flex flex-col justify-center py-4 sm:py-8">
+            <p className="text-xs font-bold uppercase tracking-[0.3em] text-[#52524D]">GetHere Coffee</p>
+            <h1 className="mt-4 max-w-2xl text-5xl font-black leading-[0.94] tracking-[-0.055em] text-[#111111] sm:text-6xl xl:text-7xl">
+              Good Coffee.
+              <br />
+              Good <span className="font-semibold italic text-[#52524D]">Moment.</span>
+            </h1>
+            <p className="mt-5 max-w-lg text-sm leading-7 text-[#575752] sm:text-base">
+              Temukan minuman favoritmu, pilih kemasan yang kamu suka, lalu pesan dengan mudah bersama GetHere.
+            </p>
+            <div className="mt-7 flex flex-wrap gap-3">
+              <a href="#produk" className="inline-flex items-center gap-2 rounded-full bg-[#111111] px-7 py-3.5 text-sm font-bold text-white transition hover:bg-[#3A2D25]">
+                Lihat Menu <span aria-hidden="true">→</span>
+              </a>
+              <Link href="/tracking" className="inline-flex items-center rounded-full border border-[#C7C7C2] bg-white/80 px-7 py-3.5 text-sm font-bold text-[#111111] transition hover:border-[#171717] hover:bg-[#F0E9E0]">
+                Lacak Pesanan
+              </Link>
+            </div>
+            <p className="mt-6 text-xs font-medium tracking-wide text-[#666660]">Satu kopi, dua cara menikmati — Cup atau Bottle.</p>
+          </div>
 
-<section className="px-5 pb-14 pt-10 sm:px-8 sm:pb-20 sm:pt-16">
-  <div className="mx-auto grid max-w-[1400px] gap-8 lg:grid-cols-[1.05fr_.95fr] lg:items-center">
-
-    {/* HERO TEXT */}
-    <div>
-      <p className="text-xs font-bold uppercase tracking-[0.3em] text-[#8A6348]">
-        GetHere Coffee
-      </p>
-
-      <h1 className="mt-4 max-w-3xl text-5xl font-black leading-[0.95] tracking-[-0.04em] sm:text-7xl">
-        Good Coffee.
-        <br />
-        Good{" "}
-        <span className="italic text-[#6D321B]">
-          Moment.
-        </span>
-      </h1>
-
-      <p className="mt-6 max-w-xl text-sm leading-7 text-[#756B63] sm:text-base">
-        Temukan minuman favoritmu,
-        pilih kemasan yang kamu suka,
-        lalu pesan dengan mudah
-        bersama GetHere.
-      </p>
-
-      <div className="mt-7 flex flex-wrap gap-3">
-        <a
-          href="#produk"
-          className="rounded-full bg-[#40551F] px-7 py-3.5 text-sm font-bold text-white shadow-lg transition hover:-translate-y-0.5"
-        >
-          Lihat Menu
-        </a>
-
-        <Link
-          href="/tracking"
-          className="rounded-full border border-[#D8C9BA] bg-white px-7 py-3.5 text-sm font-bold"
-        >
-          Lacak Pesanan
-        </Link>
-      </div>
-    </div>
-
-    {/* BEST SELLER */}
-    <div>
-
-      {/* BEST SELLER HEADER */}
-      <div className="mb-5 flex items-end justify-between">
-      <div className="lg:ml-[240px]">
-        <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#8A6348]">
-          GetHere Picks
-        </p>
-
-        <h2 className="mt-1 text-2xl font-black tracking-tight text-[#261C17] sm:text-3xl">
-          Best Seller
-        </h2>
-      </div>
-    </div>
-
-      {/* BEST SELLER CAROUSEL */}
-      <div className="relative">
-
-        {/* CAROUSEL VIEWPORT */}
-        <div
-          className={`
-            mx-auto w-full max-w-[350px]
-           h-[360px] sm:h-[420px]
-            overflow-hidden rounded-[30px]
-            select-none
-            touch-pan-y
-            ${isDragging ? "cursor-grabbing" : "cursor-grab"}
-          `}
-          onPointerDown={handleDragStart}
-          onPointerUp={handleDragEnd}
-          onPointerCancel={() => setIsDragging(false)}
-          onPointerLeave={(event) => {
-            if (isDragging) {
-              handleDragEnd(event);
-            }
-          }}
-        >
-
-          {/* SLIDES */}
-          <div
-            className="flex transition-transform duration-700 ease-out"
-            style={{
-              transform: `translateX(-${bestSellerIndex * 100}%)`,
-            }}
-          >
-            {heroProducts.length > 0 ? (
-              heroProducts.map((product) => (
-                <div
-                  key={product.id}
-                  className="basis-full min-w-0 shrink-0 grow-0"
-                >
-                  <ProductCard
-                    product={product}
-                    compact
-                  />
-                </div>
-              ))
+          <div className="group relative min-h-[300px] overflow-hidden border border-[#DEDEDA] bg-[#E7E7E3] sm:min-h-[390px] lg:min-h-[440px]">
+            {heroVisualProduct?.image ? (
+              <img
+                src={heroVisualProduct.image}
+                alt={heroVisualProduct.name}
+                className="absolute inset-0 h-full w-full object-cover object-center transition duration-700 group-hover:scale-[1.02]"
+              />
             ) : (
-              <div className="flex min-h-[300px] w-full items-center justify-center rounded-[30px] bg-[#E4D5C4] text-7xl">
-                ☕
-              </div>
+              <img
+                src="/images/gethere-bottle-reference.jpeg"
+                alt="Bottle Butterscotch Coffee GetHere"
+                className="absolute inset-y-0 right-0 h-full w-auto max-w-[100%] object-contain object-right"
+              />
             )}
+            <div className="absolute inset-0 bg-gradient-to-r from-white/65 via-white/10 to-black/10" />
+            <div className="absolute bottom-5 left-5 rounded-full border border-white/70 bg-white/95 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#111111]">
+              GetHere · Good Coffee, Good Moment
+            </div>
+            <div className="absolute right-5 top-5 max-w-[130px] border border-white/50 bg-black/80 px-4 py-3 text-right text-sm font-semibold italic leading-5 text-white sm:right-7 sm:top-7 sm:text-base">
+              Same Coffee,<br />Different Mood.
+            </div>
           </div>
         </div>
-
-
-        {/* DOT INDICATOR */}
-        {heroProducts.length > 1 && (
-          <div className="mt-4 flex justify-center gap-2">
-            {heroProducts.map((product, index) => (
-              <button
-                key={product.id}
-                type="button"
-                onClick={() => setBestSellerIndex(index)}
-                aria-label={`Lihat ${product.name}`}
-                className={`
-                  h-2 rounded-full transition-all duration-300
-                  ${
-                    bestSellerIndex === index
-                      ? "w-7 bg-[#40551F]"
-                      : "w-2 bg-[#D8C9BA]"
-                  }
-                `}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  </div>
-</section>
+      </section>
 
       {/* =====================================================
-          FEATURES
+          FEATURE STRIP
       ===================================================== */}
+      <section className="border-y border-[#E3E3E0] bg-white px-5 sm:px-8">
+        <div className="mx-auto grid max-w-[1400px] grid-cols-2 divide-x divide-y divide-[#DCDCD8] md:grid-cols-4 md:divide-y-0">
+          <div className="flex items-center gap-3 px-3 py-5 sm:gap-4 sm:px-6 sm:py-6">
+            <span className="text-2xl sm:text-3xl" aria-hidden="true">☕</span>
+            <div><h3 className="text-xs font-bold sm:text-sm">Coffee Pilihan</h3><p className="mt-1 text-[10px] leading-4 text-[#666660] sm:text-xs">Dari biji pilihan berkualitas</p></div>
+          </div>
+          <div className="flex items-center gap-3 px-3 py-5 sm:gap-4 sm:px-6 sm:py-6">
+            <span className="text-2xl sm:text-3xl" aria-hidden="true">🧴</span>
+            <div><h3 className="text-xs font-bold sm:text-sm">Cup & Bottle</h3><p className="mt-1 text-[10px] leading-4 text-[#666660] sm:text-xs">Pilih kemasan sesukamu</p></div>
+          </div>
+          <div className="flex items-center gap-3 px-3 py-5 sm:gap-4 sm:px-6 sm:py-6">
+            <span className="text-2xl sm:text-3xl" aria-hidden="true">♡</span>
+            <div><h3 className="text-xs font-bold sm:text-sm">Banyak Varian</h3><p className="mt-1 text-[10px] leading-4 text-[#666660] sm:text-xs">Coffee dan non coffee favorit</p></div>
+          </div>
+          <div className="flex items-center gap-3 px-3 py-5 sm:gap-4 sm:px-6 sm:py-6">
+            <span className="text-2xl sm:text-3xl" aria-hidden="true">↗</span>
+            <div><h3 className="text-xs font-bold sm:text-sm">Pesan Mudah</h3><p className="mt-1 text-[10px] leading-4 text-[#666660] sm:text-xs">Pesan langsung dari rumah</p></div>
+          </div>
+        </div>
+      </section>
 
-      <section className="px-5 pb-8 sm:px-8">
-        <div className="mx-auto grid max-w-[1400px] gap-4 md:grid-cols-3">
-          <div className="rounded-[25px] bg-white p-6 shadow-sm">
-            <div className="text-2xl">
-              ☕
+      {/* =====================================================
+          BEST SELLER / FEATURED PRODUCTS
+      ===================================================== */}
+      <section className="px-5 pb-5 pt-10 sm:px-8 sm:pb-8 sm:pt-12">
+        <div className="mx-auto max-w-[1400px]">
+          <div className="mb-6 flex items-end justify-between gap-4">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#52524D]">GetHere Picks</p>
+              <h2 className="mt-2 text-4xl font-black tracking-[-0.04em] text-[#111111] sm:text-5xl">Best Seller</h2>
+              <p className="mt-2 text-sm text-[#666660] sm:text-base">Menu favorit untuk menemani setiap momen.</p>
             </div>
-            <h3 className="mt-3 font-bold">
-              Coffee Pilihan
-            </h3>
-            <p className="mt-2 text-xs leading-6 text-[#756B63]">
-              Pilihan coffee favorit
-              untuk menemani aktivitasmu.
-            </p>
+            <a href="#produk" className="hidden shrink-0 text-xs font-bold text-[#111111] underline underline-offset-4 sm:block">Lihat Semua →</a>
           </div>
 
-          <div className="rounded-[25px] bg-white p-6 shadow-sm">
-            <div className="text-2xl">
-              🧴
+          {productsLoading ? (
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {[0, 1, 2, 3].map((item) => <div key={item} className="h-[330px] animate-pulse rounded-[22px] bg-[#E4E4E1]" />)}
             </div>
-            <h3 className="mt-3 font-bold">
-              Cup & Bottle
-            </h3>
-            <p className="mt-2 text-xs leading-6 text-[#756B63]">
-              Bebas memilih kemasan
-              sesuai kebutuhanmu.
-            </p>
-          </div>
-
-          <div className="rounded-[25px] bg-white p-6 shadow-sm">
-            <div className="text-2xl">
-              ♡
+          ) : bestSellerProducts.length > 0 ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {bestSellerProducts.map((product) => <ProductCard key={product.id} product={product} compact />)}
             </div>
-            <h3 className="mt-3 font-bold">
-              Banyak Varian
-            </h3>
-            <p className="mt-2 text-xs leading-6 text-[#756B63]">
-              Coffee dan non coffee
-              favoritmu.
-            </p>
-          </div>
+          ) : (
+            <div className="rounded-[22px] border border-[#E4E4E1] bg-white p-8 text-sm text-[#666660]">Produk yang tersedia dari dashboard admin akan muncul di sini.</div>
+          )}
         </div>
       </section>
 
@@ -1126,17 +794,17 @@ export default function Home() {
       >
         <div className="mx-auto max-w-[1400px]">
           <div className="mb-8">
-            <p className="text-xs font-bold uppercase tracking-[0.3em] text-[#8A6348]">
-              Our Menu
+            <p className="text-xs font-bold uppercase tracking-[0.3em] text-[#666660]">
+              Menu GetHere
             </p>
 
             <div className="mt-2 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
               <div>
                 <h2 className="text-4xl font-black tracking-tight sm:text-5xl">
-                  Menu Favorit
+                  Semua Menu
                 </h2>
 
-                <p className="mt-3 max-w-xl text-sm leading-6 text-[#756B63] sm:text-base">
+                <p className="mt-3 max-w-xl text-sm leading-6 text-[#666660] sm:text-base">
                   Temukan minuman favoritmu
                   dari berbagai pilihan
                   coffee dan non coffee
@@ -1144,7 +812,7 @@ export default function Home() {
                 </p>
               </div>
 
-              <div className="hidden rounded-full bg-[#E9DDCE] px-5 py-2.5 text-xs font-bold text-[#6D321B] sm:block">
+              <div className="hidden rounded-full bg-[#EBEBE8] px-5 py-2.5 text-xs font-bold text-[#52524D] sm:block">
                 {filteredProducts.length}{" "}
                 menu tersedia
               </div>
@@ -1161,8 +829,8 @@ export default function Home() {
               }
               className={`rounded-full px-6 py-3 text-sm font-bold transition ${
                 menuFilter === "ALL"
-                  ? "bg-[#40551F] text-white shadow-lg"
-                  : "border border-[#D8C9BA] bg-white text-[#5F5147]"
+                  ? "bg-[#171717] text-white shadow-lg"
+                  : "border border-[#D8C9BA] bg-white text-[#494945]"
               }`}
             >
               Semua
@@ -1175,8 +843,8 @@ export default function Home() {
               }
               className={`rounded-full px-6 py-3 text-sm font-bold transition ${
                 menuFilter === "COFFEE"
-                  ? "bg-[#40551F] text-white shadow-lg"
-                  : "border border-[#D8C9BA] bg-white text-[#5F5147]"
+                  ? "bg-[#171717] text-white shadow-lg"
+                  : "border border-[#D8C9BA] bg-white text-[#494945]"
               }`}
             >
               ☕ Coffee
@@ -1190,8 +858,8 @@ export default function Home() {
               className={`rounded-full px-6 py-3 text-sm font-bold transition ${
                 menuFilter ===
                 "NON_COFFEE"
-                  ? "bg-[#40551F] text-white shadow-lg"
-                  : "border border-[#D8C9BA] bg-white text-[#5F5147]"
+                  ? "bg-[#171717] text-white shadow-lg"
+                  : "border border-[#D8C9BA] bg-white text-[#494945]"
               }`}
             >
               🥤 Non Coffee
@@ -1206,7 +874,7 @@ export default function Home() {
                 ☕
               </div>
 
-              <p className="text-sm text-[#756B63]">
+              <p className="text-sm text-[#666660]">
                 Memuat menu GetHere...
               </p>
             </div>
@@ -1221,7 +889,7 @@ export default function Home() {
                 Belum ada produk tersedia
               </h3>
 
-              <p className="mt-2 text-sm text-[#756B63]">
+              <p className="mt-2 text-sm text-[#666660]">
                 Produk yang ditambahkan
                 dari dashboard admin
                 akan muncul di sini.
@@ -1238,13 +906,13 @@ export default function Home() {
                 Tidak ada produk
               </h3>
 
-              <p className="mt-2 text-sm text-[#756B63]">
+              <p className="mt-2 text-sm text-[#666660]">
                 Belum ada produk dalam
                 kategori ini.
               </p>
             </div>
           ) : (
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
               {filteredProducts.map(
                 (product) => (
                   <ProductCard
@@ -1261,44 +929,37 @@ export default function Home() {
       {/* =====================================================
           ABOUT
       ===================================================== */}
-
-      <section
-        id="tentang"
-        className="bg-[#2D211B] px-5 py-20 text-white sm:px-8"
-      >
-        <div className="mx-auto grid max-w-[1200px] gap-10 md:grid-cols-2 md:items-center">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.3em] text-[#CDB9A3]">
-              About GetHere
-            </p>
-
-            <h2 className="mt-4 text-4xl font-black leading-tight sm:text-5xl">
-              Good Coffee.
-              <br />
-
-              <span className="font-normal italic text-[#DDBD99]">
-                Good Moment.
-              </span>
+      <section id="tentang" className="mt-8 border-y border-[#E3E3E0] bg-[#F1F1EF] px-5 py-14 sm:px-8 sm:py-20">
+        <div className="mx-auto grid max-w-[1400px] items-center gap-8 md:grid-cols-2 md:gap-12">
+          <div className="max-w-xl">
+            <p className="text-xs font-bold uppercase tracking-[0.3em] text-[#52524D]">Tentang GetHere</p>
+            <h2 className="mt-4 text-4xl font-black leading-[1.02] tracking-[-0.045em] text-[#111111] sm:text-5xl">
+              Lebih dari<br />Sekadar <span className="font-semibold italic text-[#52524D]">Kopi.</span>
             </h2>
+            <p className="mt-5 max-w-lg text-sm leading-7 text-[#575752] sm:text-base">
+              GetHere hadir untuk menemani langkahmu dengan pilihan rasa yang bisa dinikmati sesuai caramu.
+            </p>
+            <div className="mt-5 space-y-3 text-sm text-[#40403C]">
+              <p className="flex items-start gap-3"><span className="mt-0.5 font-bold">01</span><span><strong>Cup</strong> — pilihan dengan es untuk sensasi yang lebih segar.</span></p>
+              <p className="flex items-start gap-3"><span className="mt-0.5 font-bold">02</span><span><strong>Bottle</strong> — disajikan tanpa es batu, praktis untuk dinikmati.</span></p>
+            </div>
+            <a href="#produk" className="mt-7 inline-flex items-center gap-2 rounded-full bg-[#111111] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#3A2D25]">Pilih Menu <span aria-hidden="true">→</span></a>
           </div>
 
-          <div>
-            <p className="text-sm leading-7 text-[#C8BDB4] sm:text-base">
-              GetHere hadir untuk
-              menghadirkan minuman yang
-              sederhana, berkualitas,
-              dan cocok untuk menemani
-              cerita sehari-hari.
-            </p>
-
-            <p className="mt-5 text-sm leading-7 text-[#C8BDB4] sm:text-base">
-              Mulai dari coffee favorit
-              sampai berbagai pilihan
-              non coffee, semuanya
-              dibuat untuk memberikan
-              pengalaman minum yang
-              nyaman dan menyenangkan.
-            </p>
+          <div className="relative min-h-[300px] overflow-hidden rounded-[24px] bg-[#E1E1DD] sm:min-h-[390px]">
+            {heroVisualProduct?.image ? (
+              <img src={heroVisualProduct.image} alt={heroVisualProduct.name} className="absolute inset-0 h-full w-full object-cover object-center" />
+            ) : (
+              <img
+                src="/images/gethere-bottle-reference.jpeg"
+                alt="Bottle Butterscotch Coffee GetHere"
+                className="absolute inset-0 h-full w-full object-cover object-center"
+              />
+            )}
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent p-5 pt-20 sm:p-7 sm:pt-24">
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/75">GetHere Coffee</p>
+              <p className="mt-1 text-2xl font-black text-white sm:text-3xl">Same Coffee. Different Mood.</p>
+            </div>
           </div>
         </div>
       </section>
@@ -1309,7 +970,7 @@ export default function Home() {
 
       <footer
         id="kontak"
-        className="bg-[#211914] px-5 py-10 text-white sm:px-8"
+        className="bg-[#111111] px-5 py-10 text-white sm:px-8"
       >
         <div className="mx-auto flex max-w-[1400px] flex-col justify-between gap-5 sm:flex-row sm:items-center">
           <div>
@@ -1317,12 +978,12 @@ export default function Home() {
               GetHere
             </div>
 
-            <p className="mt-1 text-xs text-[#9D9188]">
+            <p className="mt-1 text-xs text-[#858580]">
               Together, We Got You.
             </p>
           </div>
 
-          <div className="text-xs text-[#756B63]">
+          <div className="text-xs text-[#666660]">
             © 2026 Get-Here Coffee.
             All rights reserved.
           </div>
@@ -1347,7 +1008,7 @@ export default function Home() {
       ===================================================== */}
 
       <aside
-        className={`fixed right-0 top-0 z-50 flex h-full w-full max-w-md flex-col bg-[#F8F3EC] shadow-2xl transition-transform duration-300 ${
+        className={`fixed right-0 top-0 z-50 flex h-full w-full max-w-md flex-col bg-[#F7F7F5] shadow-2xl transition-transform duration-300 ${
           cartOpen
             ? "translate-x-0"
             : "translate-x-full"
@@ -1355,13 +1016,13 @@ export default function Home() {
       >
         {/* HEADER */}
 
-        <div className="flex items-center justify-between border-b border-[#DED2C6] p-5">
+        <div className="flex items-center justify-between border-b border-[#DCDCD8] p-5">
           <div>
             <h2 className="text-2xl font-black">
               Keranjang Kamu
             </h2>
 
-            <p className="mt-1 text-xs text-[#756B63]">
+            <p className="mt-1 text-xs text-[#666660]">
               {totalItems} item dalam
               keranjang
             </p>
@@ -1372,7 +1033,7 @@ export default function Home() {
             onClick={() =>
               setCartOpen(false)
             }
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-xl transition hover:bg-[#2D211B] hover:text-white"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-xl transition hover:bg-[#1D1D1B] hover:text-white"
           >
             ×
           </button>
@@ -1391,7 +1052,7 @@ export default function Home() {
                 Keranjang masih kosong
               </h3>
 
-              <p className="mt-2 text-sm text-[#756B63]">
+              <p className="mt-2 text-sm text-[#666660]">
                 Yuk pilih minuman
                 favorit kamu.
               </p>
@@ -1401,7 +1062,7 @@ export default function Home() {
                 onClick={() =>
                   setCartOpen(false)
                 }
-                className="mt-6 rounded-full bg-[#40551F] px-7 py-3 text-sm font-bold text-white"
+                className="mt-6 rounded-full bg-[#171717] px-7 py-3 text-sm font-bold text-white"
               >
                 Pilih Menu
               </button>
@@ -1435,7 +1096,7 @@ export default function Home() {
                         </h3>
 
                         <div className="mt-2 flex flex-wrap items-center gap-2">
-                          <span className="rounded-full bg-[#EFE5D9] px-2.5 py-1 text-[10px] font-bold uppercase text-[#6D321B]">
+                          <span className="rounded-full bg-[#EFE5D9] px-2.5 py-1 text-[10px] font-bold uppercase text-[#52524D]">
                             {item.packaging ===
                             "BOTTLE"
                               ? "🧴 Bottle"
@@ -1444,7 +1105,7 @@ export default function Home() {
 
                           {item.discountPercent >
                             0 && (
-                            <span className="rounded-full bg-[#E8F0D9] px-2.5 py-1 text-[10px] font-bold text-[#40551F]">
+                            <span className="rounded-full bg-[#E8F0D9] px-2.5 py-1 text-[10px] font-bold text-[#171717]">
                               -{" "}
                               {
                                 item.discountPercent
@@ -1457,7 +1118,7 @@ export default function Home() {
 
                       {/* CART IMAGE */}
 
-                      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-[#E4D5C4]">
+                      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-[#E0E0DC]">
                         {cartImage ? (
                           <img
                             src={cartImage}
@@ -1513,7 +1174,7 @@ export default function Home() {
                         </p>
                       )}
 
-                      <p className="mt-1 text-sm font-bold text-[#8A6348]">
+                      <p className="mt-1 text-sm font-bold text-[#666660]">
                         Rp
                         {item.finalPrice.toLocaleString(
                           "id-ID"
@@ -1550,7 +1211,7 @@ export default function Home() {
                               item.packaging
                             )
                           }
-                          className="flex h-8 w-8 items-center justify-center rounded-full bg-[#40551F] font-bold text-white"
+                          className="flex h-8 w-8 items-center justify-center rounded-full bg-[#171717] font-bold text-white"
                         >
                           +
                         </button>
@@ -1579,9 +1240,9 @@ export default function Home() {
         {/* CART FOOTER */}
 
         {cart.length > 0 && (
-          <div className="border-t border-[#DED2C6] bg-[#F8F3EC] p-5">
+          <div className="border-t border-[#DCDCD8] bg-[#F7F7F5] p-5">
             <div className="mb-4 flex items-center justify-between">
-              <span className="text-sm text-[#756B63]">
+              <span className="text-sm text-[#666660]">
                 Total
               </span>
 
@@ -1598,7 +1259,7 @@ export default function Home() {
               onClick={() =>
                 setCartOpen(false)
               }
-              className="block w-full rounded-full bg-[#40551F] py-3.5 text-center text-sm font-bold text-white transition hover:bg-[#334517]"
+              className="block w-full rounded-full bg-[#171717] py-3.5 text-center text-sm font-bold text-white transition hover:bg-[#334517]"
             >
               Lanjut Checkout
             </Link>
