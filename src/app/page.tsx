@@ -11,6 +11,11 @@ import {
   useCart,
   type Packaging,
 } from "./context/CartContext";
+import {
+  BottlePackagingIcon,
+  CoffeeMugIcon,
+  CupPackagingIcon,
+} from "@/components/PackagingIcons";
 
 // =========================================================
 // PRODUCT TYPE
@@ -42,6 +47,7 @@ type Product = {
 // =========================================================
 // PAGE
 // =========================================================
+
 
 export default function Home() {
   const {
@@ -423,11 +429,11 @@ export default function Home() {
           ) : null}
           <div
             data-image-fallback
-            className={`absolute inset-0 items-center justify-center text-6xl ${
+            className={`absolute inset-0 items-center justify-center ${
               product.image ? "hidden" : "flex"
             }`}
           >
-            ☕
+            <CoffeeMugIcon className="h-14 w-14 text-[#777772]" />
           </div>
 
           {product.discountPercent > 0 && (
@@ -465,7 +471,9 @@ export default function Home() {
                 {packaging === "CUP" && product.cupPrice != null && (
                   <span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-[#171717] text-[9px] font-bold text-white">✓</span>
                 )}
-                <span className="block text-base">🥤</span>
+                <span className="mb-1 block text-[#171717]">
+                  <CupPackagingIcon className="h-5 w-5" />
+                </span>
                 <span className="mt-1 block text-xs font-bold text-[#111111]">Cup</span>
                 <span className="mt-0.5 block text-[11px] font-semibold text-[#52524D]">
                   {packagingPriceLabel(product.cupPrice ?? product.price)}
@@ -486,7 +494,9 @@ export default function Home() {
                 {packaging === "BOTTLE" && product.bottlePrice != null && (
                   <span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-[#171717] text-[9px] font-bold text-white">✓</span>
                 )}
-                <span className="block text-base">🧴</span>
+                <span className="mb-1 block text-[#171717]">
+                  <BottlePackagingIcon className="h-5 w-5" />
+                </span>
                 <span className="mt-1 block text-xs font-bold text-[#111111]">Bottle</span>
                 <span className="mt-0.5 block text-[11px] font-semibold text-[#52524D]">
                   {packagingPriceLabel(product.bottlePrice)}
@@ -733,28 +743,98 @@ export default function Home() {
       </section>
 
       {/* =====================================================
-          FEATURE STRIP
-      ===================================================== */}
-      <section className="border-y border-[#E3E3E0] bg-white px-5 sm:px-8">
-        <div className="mx-auto grid max-w-[1400px] grid-cols-2 divide-x divide-y divide-[#DCDCD8] md:grid-cols-4 md:divide-y-0">
-          <div className="flex items-center gap-3 px-3 py-5 sm:gap-4 sm:px-6 sm:py-6">
-            <span className="text-2xl sm:text-3xl" aria-hidden="true">☕</span>
-            <div><h3 className="text-xs font-bold sm:text-sm">Coffee Pilihan</h3><p className="mt-1 text-[10px] leading-4 text-[#666660] sm:text-xs">Dari biji pilihan berkualitas</p></div>
-          </div>
-          <div className="flex items-center gap-3 px-3 py-5 sm:gap-4 sm:px-6 sm:py-6">
-            <span className="text-2xl sm:text-3xl" aria-hidden="true">🧴</span>
-            <div><h3 className="text-xs font-bold sm:text-sm">Cup & Bottle</h3><p className="mt-1 text-[10px] leading-4 text-[#666660] sm:text-xs">Pilih kemasan sesukamu</p></div>
-          </div>
-          <div className="flex items-center gap-3 px-3 py-5 sm:gap-4 sm:px-6 sm:py-6">
-            <span className="text-2xl sm:text-3xl" aria-hidden="true">♡</span>
-            <div><h3 className="text-xs font-bold sm:text-sm">Banyak Varian</h3><p className="mt-1 text-[10px] leading-4 text-[#666660] sm:text-xs">Coffee dan non coffee favorit</p></div>
-          </div>
-          <div className="flex items-center gap-3 px-3 py-5 sm:gap-4 sm:px-6 sm:py-6">
-            <span className="text-2xl sm:text-3xl" aria-hidden="true">↗</span>
-            <div><h3 className="text-xs font-bold sm:text-sm">Pesan Mudah</h3><p className="mt-1 text-[10px] leading-4 text-[#666660] sm:text-xs">Pesan langsung dari rumah</p></div>
-          </div>
-        </div>
-      </section>
+    FEATURE STRIP
+===================================================== */}
+<section className="border-y border-[#E3E3E0] bg-white px-5 sm:px-8">
+  <div className="mx-auto grid max-w-[1400px] grid-cols-2 divide-x divide-y divide-[#DCDCD8] md:grid-cols-4 md:divide-y-0">
+
+    {/* COFFEE PILIHAN */}
+    <div className="flex items-center gap-3 px-3 py-5 sm:gap-4 sm:px-6 sm:py-6">
+      <CoffeeMugIcon className="h-7 w-7 shrink-0 text-[#171717] sm:h-8 sm:w-8" />
+
+      <div>
+        <h3 className="text-xs font-bold text-[#111111] sm:text-sm">
+          Coffee Pilihan
+        </h3>
+
+        <p className="mt-1 text-[10px] leading-4 text-[#666660] sm:text-xs">
+          Dari biji pilihan berkualitas
+        </p>
+      </div>
+    </div>
+
+    {/* CUP & BOTTLE */}
+    <div className="flex items-center gap-3 px-3 py-5 sm:gap-4 sm:px-6 sm:py-6">
+      <BottlePackagingIcon className="h-7 w-7 shrink-0 text-[#171717] sm:h-8 sm:w-8" />
+
+      <div>
+        <h3 className="text-xs font-bold text-[#111111] sm:text-sm">
+          Cup & Bottle
+        </h3>
+
+        <p className="mt-1 text-[10px] leading-4 text-[#666660] sm:text-xs">
+          Pilih kemasan sesukamu
+        </p>
+      </div>
+    </div>
+
+    {/* BANYAK VARIAN */}
+    <div className="flex items-center gap-3 px-3 py-5 sm:gap-4 sm:px-6 sm:py-6">
+      <svg
+        viewBox="0 0 24 24"
+        className="h-7 w-7 shrink-0 text-[#171717] sm:h-8 sm:w-8"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z" />
+      </svg>
+
+      <div>
+        <h3 className="text-xs font-bold text-[#111111] sm:text-sm">
+          Banyak Varian
+        </h3>
+
+        <p className="mt-1 text-[10px] leading-4 text-[#666660] sm:text-xs">
+          Coffee dan non coffee favorit
+        </p>
+      </div>
+    </div>
+
+    {/* PESAN MUDAH */}
+    <div className="flex items-center gap-3 px-3 py-5 sm:gap-4 sm:px-6 sm:py-6">
+      <svg
+        viewBox="0 0 32 32"
+        className="h-7 w-7 shrink-0 text-[#171717] sm:h-8 sm:w-8"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M3 7h16v16H3z" />
+        <path d="M19 13h5l5 5v5H19z" />
+        <circle cx="9" cy="25" r="3" />
+        <circle cx="24" cy="25" r="3" />
+      </svg>
+
+      <div>
+        <h3 className="text-xs font-bold text-[#111111] sm:text-sm">
+          Pesan Mudah
+        </h3>
+
+        <p className="mt-1 text-[10px] leading-4 text-[#666660] sm:text-xs">
+          Pesan langsung dari rumah
+        </p>
+      </div>
+    </div>
+
+  </div>
+</section>
 
       {/* =====================================================
           BEST SELLER / FEATURED PRODUCTS
@@ -819,110 +899,104 @@ export default function Home() {
             </div>
           </div>
 
-          {/* FILTER */}
-
+          {/* =====================================================
+              MENU FILTER
+          ===================================================== */}
           <div className="mb-10 flex flex-wrap items-center gap-2">
+            {/* SEMUA */}
             <button
               type="button"
-              onClick={() =>
-                setMenuFilter("ALL")
-              }
-              className={`rounded-full px-6 py-3 text-sm font-bold transition ${
+              onClick={() => setMenuFilter("ALL")}
+              className={`inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold transition ${
                 menuFilter === "ALL"
                   ? "bg-[#171717] text-white shadow-lg"
-                  : "border border-[#D8C9BA] bg-white text-[#494945]"
+                  : "border border-[#DCDCD8] bg-white text-[#171717] hover:border-[#171717]"
               }`}
             >
               Semua
             </button>
 
+            {/* COFFEE */}
             <button
               type="button"
-              onClick={() =>
-                setMenuFilter("COFFEE")
-              }
-              className={`rounded-full px-6 py-3 text-sm font-bold transition ${
+              onClick={() => setMenuFilter("COFFEE")}
+              className={`inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold transition ${
                 menuFilter === "COFFEE"
                   ? "bg-[#171717] text-white shadow-lg"
-                  : "border border-[#D8C9BA] bg-white text-[#494945]"
+                  : "border border-[#DCDCD8] bg-white text-[#171717] hover:border-[#171717]"
               }`}
             >
-              ☕ Coffee
+              <CoffeeMugIcon className="h-4 w-4 shrink-0" />
+              Coffee
             </button>
 
+            {/* NON COFFEE */}
             <button
               type="button"
-              onClick={() =>
-                setMenuFilter("NON_COFFEE")
-              }
-              className={`rounded-full px-6 py-3 text-sm font-bold transition ${
-                menuFilter ===
-                "NON_COFFEE"
+              onClick={() => setMenuFilter("NON_COFFEE")}
+              className={`inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold transition ${
+                menuFilter === "NON_COFFEE"
                   ? "bg-[#171717] text-white shadow-lg"
-                  : "border border-[#D8C9BA] bg-white text-[#494945]"
+                  : "border border-[#DCDCD8] bg-white text-[#171717] hover:border-[#171717]"
               }`}
             >
-              🥤 Non Coffee
+              <CupPackagingIcon className="h-4 w-4 shrink-0" />
+              Non Coffee
             </button>
           </div>
 
-          {/* LOADING */}
+          {/* =====================================================
+              PRODUCT LIST STATES
+          ===================================================== */}
 
           {productsLoading ? (
-            <div className="rounded-[30px] bg-white py-20 text-center shadow-sm">
-              <div className="mb-4 animate-pulse text-5xl">
-                ☕
-              </div>
+            /* LOADING */
+            <div className="rounded-[24px] border border-[#E4E4E1] bg-white py-20 text-center">
+              <CoffeeMugIcon className="mx-auto mb-4 h-12 w-12 animate-pulse text-[#777772]" />
 
               <p className="text-sm text-[#666660]">
                 Memuat menu GetHere...
               </p>
             </div>
-          ) : products.length ===
-            0 ? (
-            <div className="rounded-[30px] bg-white py-20 text-center shadow-sm">
-              <div className="mb-4 text-5xl">
-                🥤
-              </div>
+          ) : products.length === 0 ? (
+            /* NO PRODUCTS */
+            <div className="rounded-[24px] border border-[#E4E4E1] bg-white px-6 py-20 text-center">
+              <CupPackagingIcon className="mx-auto mb-4 h-12 w-12 text-[#777772]" />
 
-              <h3 className="font-bold">
+              <h3 className="font-bold text-[#111111]">
                 Belum ada produk tersedia
               </h3>
 
               <p className="mt-2 text-sm text-[#666660]">
-                Produk yang ditambahkan
-                dari dashboard admin
+                Produk yang ditambahkan dari dashboard admin
                 akan muncul di sini.
               </p>
             </div>
-          ) : filteredProducts.length ===
-            0 ? (
-            <div className="rounded-[30px] bg-white py-20 text-center shadow-sm">
-              <div className="mb-4 text-5xl">
-                🔍
-              </div>
+          ) : filteredProducts.length === 0 ? (
+            /* EMPTY CATEGORY */
+            <div className="rounded-[24px] border border-[#E4E4E1] bg-white px-6 py-20 text-center">
+              <CoffeeMugIcon className="mx-auto mb-4 h-12 w-12 text-[#777772]" />
 
-              <h3 className="font-bold">
+              <h3 className="font-bold text-[#111111]">
                 Tidak ada produk
               </h3>
 
               <p className="mt-2 text-sm text-[#666660]">
-                Belum ada produk dalam
-                kategori ini.
+                Belum ada produk dalam kategori ini.
               </p>
             </div>
           ) : (
+            /* PRODUCT GRID */
             <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-              {filteredProducts.map(
-                (product) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                  />
-                )
-              )}
+              {filteredProducts.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                />
+              ))}
             </div>
           )}
+
         </div>
       </section>
 
