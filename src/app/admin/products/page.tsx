@@ -23,7 +23,10 @@ type Product = {
 type ProductForm = {
   name: string;
   description: string;
+  image: string;
   price: string;
+  cupPrice: string;
+  bottlePrice: string;
   discountPercent: string;
   isAvailable: boolean;
   category: "COFFEE" | "NON_COFFEE";
@@ -32,7 +35,10 @@ type ProductForm = {
 const emptyForm: ProductForm = {
   name: "",
   description: "",
+  image: "",
   price: "",
+  cupPrice: "",
+  bottlePrice: "",
   discountPercent: "0",
   isAvailable: true,
   category: "COFFEE",
@@ -115,7 +121,10 @@ export default function AdminProductsPage() {
     setForm({
       name: product.name,
       description: product.description || "",
+      image: product.image || "",
       price: String(product.price),
+      cupPrice: product.cupPrice == null ? "" : String(product.cupPrice),
+      bottlePrice: product.bottlePrice == null ? "" : String(product.bottlePrice),
       discountPercent: String(product.discountPercent),
       isAvailable: product.isAvailable,
       category: product.category,
@@ -167,6 +176,8 @@ export default function AdminProductsPage() {
 
     try {
       const price = Number(form.price);
+      const cupPrice = Number(form.cupPrice);
+      const bottlePrice = Number(form.bottlePrice);
       const discountPercent = Number(form.discountPercent);
 
       if (!form.name.trim()) {
@@ -174,7 +185,15 @@ export default function AdminProductsPage() {
       }
 
       if (!Number.isInteger(price) || price < 0) {
-        throw new Error("Harga produk tidak valid.");
+        throw new Error("Harga dasar produk tidak valid.");
+      }
+
+      if (form.cupPrice.trim() === "" || !Number.isInteger(cupPrice) || cupPrice < 0) {
+        throw new Error("Harga Cup wajib diisi dengan angka yang valid.");
+      }
+
+      if (form.bottlePrice.trim() === "" || !Number.isInteger(bottlePrice) || bottlePrice < 0) {
+        throw new Error("Harga Bottle wajib diisi dengan angka yang valid.");
       }
 
       if (
@@ -190,7 +209,10 @@ export default function AdminProductsPage() {
       const payload = {
         name: form.name.trim(),
         description: form.description.trim() || null,
+        image: form.image.trim() || null,
         price,
+        cupPrice,
+        bottlePrice,
         discountPercent,
         isAvailable: form.isAvailable,
         category: form.category,
@@ -303,15 +325,9 @@ export default function AdminProductsPage() {
   // HITUNG HARGA SETELAH DISKON
   // ==========================================
 
-  function discountedPrice(product: Product) {
-    if (product.discountPercent <= 0) {
-      return product.price;
-    }
-
-    return Math.round(
-      product.price -
-        (product.price * product.discountPercent) / 100
-    );
+  function discountedPrice(product: Product, originalPrice = product.price) {
+    if (product.discountPercent <= 0) return originalPrice;
+    return Math.round(originalPrice - (originalPrice * product.discountPercent) / 100);
   }
 
   // ==========================================
@@ -319,7 +335,7 @@ export default function AdminProductsPage() {
   // ==========================================
 
   return (
-    <main className="min-h-screen bg-white px-6 py-10 text-black">
+    <main className="min-h-full bg-transparent px-0 py-0 text-[#171717]">
       <div className="mx-auto max-w-6xl">
         {/* HEADER */}
 
@@ -434,6 +450,24 @@ export default function AdminProductsPage() {
                 />
               </div>
 
+              {/* PRODUCT IMAGE */}
+              <div>
+                <label className="mb-2 block text-sm font-medium">URL foto produk</label>
+                <input
+                  type="url"
+                  value={form.image}
+                  onChange={(event) => updateForm("image", event.target.value)}
+                  placeholder="https://..."
+                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-black"
+                />
+                {form.image && (
+                  <div className="mt-3 flex h-28 w-28 items-center justify-center overflow-hidden rounded-xl border border-[#E5E5E1] bg-[#F2F2EF]">
+                    <img src={form.image} alt="Preview produk" className="h-full w-full object-cover" onError={(event) => { event.currentTarget.style.display = "none"; }} />
+                  </div>
+                )}
+                <p className="mt-1 text-xs text-gray-500">Satu foto utama dipakai untuk kartu produk pada website.</p>
+              </div>
+
               {/* CATEGORY */}
 
                 <div>
@@ -467,45 +501,49 @@ export default function AdminProductsPage() {
                   </p>
                 </div>
 
-              {/* PRICE + DISCOUNT */}
-
+              {/* BASE PRICE, PACKAGING PRICES + DISCOUNT */}
               <div className="grid gap-5 sm:grid-cols-2">
                 <div>
-                  <label className="mb-2 block text-sm font-medium">
-                    Harga
-                  </label>
-
+                  <label className="mb-2 block text-sm font-medium">Harga dasar</label>
                   <input
                     type="number"
                     min="0"
                     value={form.price}
-                    onChange={(event) =>
-                      updateForm(
-                        "price",
-                        event.target.value
-                      )
-                    }
+                    onChange={(event) => updateForm("price", event.target.value)}
                     placeholder="22000"
                     className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-black"
                   />
                 </div>
-
                 <div>
-                  <label className="mb-2 block text-sm font-medium">
-                    Diskon (%)
-                  </label>
-
+                  <label className="mb-2 block text-sm font-medium">Harga Cup</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={form.cupPrice}
+                    onChange={(event) => updateForm("cupPrice", event.target.value)}
+                    placeholder="22500"
+                    className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-black"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium">Harga Bottle</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={form.bottlePrice}
+                    onChange={(event) => updateForm("bottlePrice", event.target.value)}
+                    placeholder="25000"
+                    className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-black"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium">Diskon (%)</label>
                   <input
                     type="number"
                     min="0"
                     max="100"
                     value={form.discountPercent}
-                    onChange={(event) =>
-                      updateForm(
-                        "discountPercent",
-                        event.target.value
-                      )
-                    }
+                    onChange={(event) => updateForm("discountPercent", event.target.value)}
                     placeholder="0"
                     className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-black"
                   />
@@ -610,8 +648,10 @@ export default function AdminProductsPage() {
                           alt={product.name}
                           className="h-full w-full rounded-xl object-cover"
                         />
+                      ) : product.category === "COFFEE" ? (
+                        <CoffeeMugIcon className="h-5 w-5" />
                       ) : (
-                        "IMG"
+                        <CupPackagingIcon className="h-5 w-5" />
                       )}
                     </div>
 
@@ -639,25 +679,13 @@ export default function AdminProductsPage() {
                           "Tidak ada deskripsi."}
                       </p>
 
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        {product.discountPercent > 0 ? (
-                          <>
-                            <span className="text-sm font-semibold">
-                              {formatRupiah(
-                                discountedPrice(product)
-                              )}
-                            </span>
-
-                            <span className="text-xs text-gray-400 line-through">
-                              {formatRupiah(product.price)}
-                            </span>
-                          </>
-                        ) : (
-                          <span className="text-sm font-semibold">
-                            {formatRupiah(product.price)}
-                          </span>
-                        )}
+                      <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                        <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#F1F1EE] px-2.5 py-1.5 text-[#33332F]"><CupPackagingIcon className="h-3.5 w-3.5" />Cup: {product.cupPrice == null ? "—" : formatRupiah(discountedPrice(product, product.cupPrice))}</span>
+                        <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#F1F1EE] px-2.5 py-1.5 text-[#33332F]"><BottlePackagingIcon className="h-3.5 w-3.5" />Bottle: {product.bottlePrice == null ? "—" : formatRupiah(discountedPrice(product, product.bottlePrice))}</span>
                       </div>
+                      {product.discountPercent > 0 && (
+                        <p className="mt-1 text-[11px] text-gray-500">Diskon {product.discountPercent}% · harga dasar {formatRupiah(product.price)}</p>
+                      )}
                     </div>
                   </div>
 

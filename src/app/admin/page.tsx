@@ -1,21 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import {
-  BottlePackagingIcon,
-  CoffeeMugIcon,
-  CupPackagingIcon,
-} from "@/components/PackagingIcons";
-
-type Packaging = "CUP" | "BOTTLE";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { BottlePackagingIcon, CupPackagingIcon } from "@/components/PackagingIcons";
+import { useAdminUser } from "./AdminShell";
 
 type OrderItem = {
   id: number;
   productId: number;
   name: string;
   packaging: string;
-  originalPrice: number;
-  discountPercent: number;
   price: number;
   quantity: number;
 };
@@ -24,8 +18,7 @@ type Order = {
   id: number;
   customerName: string;
   whatsapp: string;
-  address: string;
-  note: string | null;
+  address?: string;
   totalPrice: number;
   status: string;
   paymentStatus: string;
@@ -36,2090 +29,365 @@ type Order = {
 type Product = {
   id: number;
   name: string;
-  description?: string | null;
-
-  // FOTO PRODUK
   image?: string | null;
-
-  // CATEGORY
-  category: "COFFEE" | "NON_COFFEE";
-
-  // HARGA
   price: number;
   cupPrice?: number | null;
   bottlePrice?: number | null;
-
   discountPercent: number;
+  category: "COFFEE" | "NON_COFFEE";
   isAvailable: boolean;
 };
 
-export default function AdminPage() {
-  /* =====================================================
-     ORDER
-  ===================================================== */
+const money = (value: number) =>
+  new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(value);
 
+// Dashboard reporting uses WIB dates so order grouping matches the store's local day.
+function dateKeyInJakarta(value: string | Date): string {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const part = (type: string) => parts.find((entry) => entry.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
+function shiftDateKey(dateKey: string, amount: number): string {
+  if (!dateKey) return "";
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day + amount));
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
+}
+
+function formatDateKey(dateKey: string, style: "long" | "short" = "long"): string {
+  if (!dateKey) return "Memuat tanggal...";
+  const date = new Date(`${dateKey}T12:00:00+07:00`);
+  return date.toLocaleDateString("id-ID", {
+    timeZone: "Asia/Jakarta",
+    day: "numeric",
+    month: style === "short" ? "short" : "long",
+    year: "numeric",
+  });
+}
+
+function statusLabel(status: string) {
+  const labels: Record<string, string> = {
+    PENDING: "Menunggu",
+    PROCESSING: "Diproses",
+    SHIPPING: "Dikirim",
+    COMPLETED: "Selesai",
+    CANCELLED: "Dibatalkan",
+  };
+  return labels[status] ?? status;
+}
+
+function statusTone(status: string) {
+  const tones: Record<string, string> = {
+    PENDING: "bg-amber-100 text-amber-800",
+    PROCESSING: "bg-blue-100 text-blue-800",
+    SHIPPING: "bg-violet-100 text-violet-800",
+    COMPLETED: "bg-emerald-100 text-emerald-800",
+    CANCELLED: "bg-rose-100 text-rose-800",
+  };
+  return tones[status] ?? "bg-gray-100 text-gray-700";
+}
+
+function paymentLabel(status: string) {
+  const labels: Record<string, string> = {
+    PENDING: "Menunggu bayar",
+    PAID: "Dibayar",
+    FAILED: "Gagal",
+    EXPIRED: "Kedaluwarsa",
+  };
+  return labels[status] ?? status;
+}
+
+export default function AdminDashboardPage() {
+  const { username } = useAdminUser();
   const [orders, setOrders] = useState<Order[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [todayKey, setTodayKey] = useState("");
+  const [selectedDate, setSelectedDate] = useState("");
 
-  // ==========================================================
-  // SALES REPORT
-  // ==========================================================
-
-  type ReportPeriod = "DAY" | "WEEK" | "MONTH";
-
-  const [reportPeriod, setReportPeriod] =
-    useState<ReportPeriod>("DAY");
-
-  function isSamePeriod(
-    dateString: string,
-    period: ReportPeriod
-  ) {
-    const date = new Date(dateString);
-    const now = new Date();
-
-    if (period === "DAY") {
-      return (
-        date.getFullYear() === now.getFullYear() &&
-        date.getMonth() === now.getMonth() &&
-        date.getDate() === now.getDate()
-      );
-    }
-
-    if (period === "MONTH") {
-      return (
-        date.getFullYear() === now.getFullYear() &&
-        date.getMonth() === now.getMonth()
-      );
-    }
-
-    // WEEK = Senin sampai Minggu
-    const currentDay = now.getDay();
-
-    const diffToMonday =
-      currentDay === 0
-        ? 6
-        : currentDay - 1;
-
-    const monday = new Date(now);
-
-    monday.setHours(0, 0, 0, 0);
-    monday.setDate(
-      now.getDate() - diffToMonday
-    );
-
-    const sunday = new Date(monday);
-
-    sunday.setDate(
-      monday.getDate() + 6
-    );
-
-    sunday.setHours(
-      23,
-      59,
-      59,
-      999
-    );
-
-    return (
-      date >= monday &&
-      date <= sunday
-    );
-  }
-
-  const paidOrders = orders.filter(
-    (order) =>
-      order.paymentStatus === "PAID"
-  );
-
-  const reportOrders = paidOrders.filter(
-    (order) =>
-      isSamePeriod(
-        order.createdAt,
-        reportPeriod
-      )
-  );
-
-  const reportRevenue =
-    reportOrders.reduce(
-      (total, order) =>
-        total + order.totalPrice,
-      0
-    );
-
-  const reportProductsSold =
-    reportOrders.reduce(
-      (total, order) =>
-        total +
-        order.items.reduce(
-          (itemTotal, item) =>
-            itemTotal + item.quantity,
-          0
-        ),
-      0
-    );
-
-  const bestSellingProducts = Object.values(
-    reportOrders
-      .flatMap((order) => order.items)
-      .reduce(
-        (
-          result,
-          item
-        ) => {
-          if (!result[item.productId]) {
-            result[item.productId] = {
-              productId:
-                item.productId,
-              name: item.name,
-              quantity: 0,
-              revenue: 0,
-            };
-          }
-
-          result[item.productId].quantity +=
-            item.quantity;
-
-          result[item.productId].revenue +=
-            item.price * item.quantity;
-
-          return result;
-        },
-        {} as Record<
-          number,
-          {
-            productId: number;
-            name: string;
-            quantity: number;
-            revenue: number;
-          }
-        >
-      )
-  )
-    .sort(
-      (a, b) =>
-        b.quantity - a.quantity
-    )
-    .slice(0, 5);
-
-    async function fetchOrders() {
+  useEffect(() => {
+    const today = dateKeyInJakarta(new Date());
+    setTodayKey(today);
+    setSelectedDate(today);
+    async function loadDashboard() {
       try {
         setLoading(true);
-
-        const response = await fetch("/api/orders", {
-          cache: "no-store",
-        });
-
-        const data = await response.json();
-
-        if (data.success) {
-          setOrders(data.orders);
+        setLoadError("");
+        const [ordersResponse, productsResponse] = await Promise.all([
+          fetch("/api/orders", { cache: "no-store", credentials: "include" }),
+          fetch("/api/products", { cache: "no-store", credentials: "include" }),
+        ]);
+        const [ordersData, productsData] = await Promise.all([
+          ordersResponse.json(),
+          productsResponse.json(),
+        ]);
+        if (!ordersResponse.ok || !ordersData.success) {
+          throw new Error(ordersData.message || "Gagal memuat pesanan.");
         }
+        if (!productsResponse.ok || !productsData.success) {
+          throw new Error(productsData.message || "Gagal memuat produk.");
+        }
+        setOrders(Array.isArray(ordersData.orders) ? ordersData.orders : []);
+        setProducts(Array.isArray(productsData.products) ? productsData.products : []);
       } catch (error) {
-        console.error("Gagal mengambil order:", error);
+        console.error("Dashboard load error:", error);
+        setLoadError(error instanceof Error ? error.message : "Gagal memuat data dashboard.");
       } finally {
         setLoading(false);
       }
     }
-
-    useEffect(() => {
-      fetchOrders();
-    }, []);
-
-    async function updateStatus(id: number, status: string) {
-      try {
-        const response = await fetch("/api/orders", {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            id,
-            status,
-          }),
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          alert(data.message || "Gagal mengubah status.");
-          return;
-        }
-
-        setOrders((currentOrders) =>
-          currentOrders.map((order) =>
-            order.id === id
-              ? {
-                  ...order,
-                  status,
-                }
-              : order
-          )
-        );
-      } catch (error) {
-        console.error(error);
-        alert("Terjadi kesalahan.");
-      }
-    }
-
-  /* =====================================================
-     PRODUCT
-  ===================================================== */
-
-  const [products, setProducts] = useState<Product[]>([]);
-  const [productLoading, setProductLoading] = useState(true);
-
-  const [showProductForm, setShowProductForm] =
-    useState(false);
-
-  const [editingProduct, setEditingProduct] =
-    useState<Product | null>(null);
-
-  const [productName, setProductName] =
-    useState("");
-
-  const [productDescription, setProductDescription] =
-    useState("");
-
-  const [productPrice, setProductPrice] =
-    useState("");
-
-  const [productCategory, setProductCategory] =
-    useState<"COFFEE" | "NON_COFFEE">("COFFEE");
-
-  const [productCupPrice, setProductCupPrice] =
-    useState("");
-
-  const [productBottlePrice, setProductBottlePrice] =
-    useState("");
-
-  const [productDiscount, setProductDiscount] =
-    useState("0");
-
-  const [productAvailable, setProductAvailable] =
-    useState(true);
-
-  // FOTO UTAMA
-  const [productImage, setProductImage] =
-    useState("");
-
-  const [savingProduct, setSavingProduct] =
-    useState(false);
-
-  async function fetchProducts() {
-    try {
-      setProductLoading(true);
-
-      const response = await fetch("/api/products", {
-        cache: "no-store",
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setProducts(data.products);
-      } else {
-        console.error(
-          "Gagal mengambil produk:",
-          data.message
-        );
-      }
-    } catch (error) {
-      console.error(
-        "Gagal mengambil produk:",
-        error
-      );
-    } finally {
-      setProductLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    fetchProducts();
+    loadDashboard();
   }, []);
 
-  /* =====================================================
-     RESET FORM
-  ===================================================== */
+  const minimumReportDate = todayKey ? shiftDateKey(todayKey, -30) : "";
+  const reportIsReady = Boolean(selectedDate);
 
-  function resetProductForm() {
-    setProductName("");
-    setProductDescription("");
+  // All dashboard sales/order widgets follow the selected report date.
+  const selectedOrders = useMemo(
+    () => orders.filter((order) => dateKeyInJakarta(order.createdAt) === selectedDate),
+    [orders, selectedDate]
+  );
+  const paidOrdersForDate = useMemo(
+    () => selectedOrders.filter((order) => order.paymentStatus === "PAID"),
+    [selectedOrders]
+  );
+  const totalRevenue = paidOrdersForDate.reduce((sum, order) => sum + order.totalPrice, 0);
+  const customerCount = new Set(
+    selectedOrders
+      .map((order) => order.whatsapp?.trim() || order.customerName.trim().toLowerCase())
+      .filter(Boolean)
+  ).size;
+  const soldItems = paidOrdersForDate.reduce(
+    (sum, order) => sum + (order.items ?? []).reduce((itemSum, item) => itemSum + item.quantity, 0),
+    0
+  );
 
-    setProductCategory("COFFEE");
+  const topProducts = useMemo(() => {
+    const grouped = new Map<number, { productId: number; name: string; quantity: number; revenue: number }>();
+    paidOrdersForDate.forEach((order) => {
+      (order.items ?? []).forEach((item) => {
+        const current = grouped.get(item.productId) ?? { productId: item.productId, name: item.name, quantity: 0, revenue: 0 };
+        current.quantity += item.quantity;
+        current.revenue += item.price * item.quantity;
+        grouped.set(item.productId, current);
+      });
+    });
+    return Array.from(grouped.values()).sort((a, b) => b.quantity - a.quantity).slice(0, 5);
+  }, [paidOrdersForDate]);
 
-    setProductPrice("");
-    setProductCupPrice("");
-    setProductBottlePrice("");
-
-    setProductDiscount("0");
-
-    setProductAvailable(true);
-
-    setProductImage("");
-
-    setEditingProduct(null);
-  }
-
-  /* =====================================================
-     ADD PRODUCT
-  ===================================================== */
-
-  function openAddProduct() {
-    resetProductForm();
-    setShowProductForm(true);
-  }
-
-  /* =====================================================
-     EDIT PRODUCT
-  ===================================================== */
-
-  function openEditProduct(product: Product) {
-    setEditingProduct(product);
-
-    setProductName(product.name);
-
-    setProductDescription(
-      product.description || ""
-    );
-
-    setProductCategory(product.category);
-
-    setProductPrice(
-      String(product.price ?? "")
-    );
-
-    setProductCupPrice(
-      product.cupPrice !== null &&
-      product.cupPrice !== undefined
-        ? String(product.cupPrice)
-        : ""
-    );
-
-    setProductBottlePrice(
-      product.bottlePrice !== null &&
-      product.bottlePrice !== undefined
-        ? String(product.bottlePrice)
-        : ""
-    );
-
-    setProductDiscount(
-      String(product.discountPercent ?? 0)
-    );
-
-    setProductAvailable(
-      product.isAvailable
-    );
-
-    setProductImage(
-      product.image || ""
-    );
-
-    setShowProductForm(true);
-  }
-
-  /* =====================================================
-     SAVE PRODUCT
-  ===================================================== */
-
-  async function saveProduct(
-    e: React.FormEvent
-  ) {
-      e.preventDefault();
-
-      if (!productName.trim()) {
-        alert("Nama produk wajib diisi.");
-        return;
-      }
-
-      if (
-        !productPrice ||
-        Number(productPrice) < 0
-      ) {
-        alert("Harga produk tidak valid.");
-        return;
-      }
-
-      if (
-        !productCupPrice ||
-        Number(productCupPrice) < 0
-      ) {
-        alert("Harga cup tidak valid.");
-        return;
-      }
-
-      if (
-        !productBottlePrice ||
-        Number(productBottlePrice) < 0
-      ) {
-        alert("Harga bottle tidak valid.");
-        return;
-      }
-
-      if (
-        Number(productDiscount) < 0 ||
-        Number(productDiscount) > 100
-      ) {
-        alert(
-          "Diskon harus antara 0 sampai 100."
-        );
-        return;
-      }
-
-      try {
-        setSavingProduct(true);
-
-        const payload = {
-          name: productName.trim(),
-
-          description:
-            productDescription.trim() || null,
-
-          category: productCategory,
-
-          price: Number(productPrice),
-
-          discountPercent:
-            Number(productDiscount),
-
-          isAvailable:
-            productAvailable,
-
-          // SATU FOTO PRODUK SAJA
-          image:
-            productImage.trim() || null,
-
-          // HARGA KEMASAN
-          cupPrice:
-            Number(productCupPrice),
-
-          bottlePrice:
-            Number(productBottlePrice),
-        };
-
-        let response: Response;
-
-        if (editingProduct) {
-          response = await fetch(
-            `/api/products/${editingProduct.id}`,
-            {
-              method: "PATCH",
-
-              headers: {
-                "Content-Type":
-                  "application/json",
-              },
-
-              body: JSON.stringify(
-                payload
-              ),
-            }
-          );
-        } else {
-          response = await fetch(
-            "/api/products",
-            {
-              method: "POST",
-
-              headers: {
-                "Content-Type":
-                  "application/json",
-              },
-
-              body: JSON.stringify(
-                payload
-              ),
-            }
-          );
-        }
-
-        const data =
-          await response.json();
-
-        if (!response.ok) {
-          alert(
-            data.message ||
-              "Gagal menyimpan produk."
-          );
-          return;
-        }
-
-        alert(
-          editingProduct
-            ? "Produk berhasil diperbarui."
-            : "Produk berhasil ditambahkan."
-        );
-
-        setShowProductForm(false);
-
-        resetProductForm();
-
-        await fetchProducts();
-      } catch (error) {
-        console.error(error);
-
-        alert(
-          "Terjadi kesalahan saat menyimpan produk."
-        );
-      } finally {
-        setSavingProduct(false);
-      }
+  // Show seven daily points ending on the chosen date; the date picker itself
+  // limits reports to today and the prior 30 days.
+  const chartData = useMemo(() => {
+    if (!selectedDate) return [] as { dateKey: string; label: string; revenue: number }[];
+    const days: { dateKey: string; label: string; revenue: number }[] = [];
+    for (let offset = 6; offset >= 0; offset -= 1) {
+      const dateKey = shiftDateKey(selectedDate, -offset);
+      if (dateKey < minimumReportDate) continue;
+      const revenue = orders.reduce((sum, order) => {
+        if (order.paymentStatus !== "PAID" || dateKeyInJakarta(order.createdAt) !== dateKey) return sum;
+        return sum + order.totalPrice;
+      }, 0);
+      days.push({ dateKey, label: formatDateKey(dateKey, "short").replace(/\s+\d{4}$/, ""), revenue });
     }
-  /* =====================================================
-     DELETE PRODUCT
-  ===================================================== */
+    return days;
+  }, [orders, selectedDate, minimumReportDate]);
 
-  async function deleteProduct(
-    product: Product
-  ) {
-    const confirmed =
-      window.confirm(
-        `Yakin ingin menghapus produk "${product.name}"?`
-      );
-
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      const response = await fetch(
-        `/api/products/${product.id}`,
-        {
-          method: "DELETE",
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        alert(
-          data.message ||
-            "Gagal menghapus produk."
-        );
-        return;
-      }
-
-      alert(
-        "Produk berhasil dihapus."
-      );
-
-      await fetchProducts();
-    } catch (error) {
-      console.error(error);
-
-      alert(
-        "Terjadi kesalahan saat menghapus produk."
-      );
-    }
-  }
-
-  /* =====================================================
-     FORMAT
-  ===================================================== */
-
-  function formatRupiah(price: number) {
-    return new Intl.NumberFormat(
-      "id-ID",
-      {
-        style: "currency",
-        currency: "IDR",
-        maximumFractionDigits: 0,
-      }
-    ).format(price);
-  }
-
-  function getStatusClass(
-    status: string
-  ) {
-    switch (status) {
-      case "PENDING":
-        return "bg-yellow-100 text-yellow-700";
-
-      case "PROCESSING":
-        return "bg-blue-100 text-blue-700";
-
-      case "SHIPPING":
-        return "bg-purple-100 text-purple-700";
-
-      case "COMPLETED":
-        return "bg-green-100 text-green-700";
-
-      case "CANCELLED":
-        return "bg-red-100 text-red-700";
-
-      default:
-        return "bg-gray-100 text-gray-700";
-    }
-  }
-
-  /* =====================================================
-     HELPER FOTO ORDER
-  ===================================================== */
-
-  function getPackagingLabel(
-    packaging: string
-  ) {
-    const normalized =
-      packaging.toUpperCase();
-
-    if (
-      normalized === "BOTTLE" ||
-      normalized === "BOTOL"
-    ) {
-      return "Bottle";
-    }
-
-    return "Cup";
-  }
-
-  function getOrderItemImage(
-    item: OrderItem
-  ) {
-    const product =
-      products.find(
-        (product) =>
-          product.id === item.productId
-      );
-
-    return product?.image || null;
-  }
-
-  /* =====================================================
-     STATISTICS
-  ===================================================== */
-
-  const totalOrders =
-    orders.length;
-
-  const pendingOrders =
-    orders.filter(
-      (order) =>
-        order.status === "PENDING"
-    ).length;
-
-  const processingOrders =
-    orders.filter(
-      (order) =>
-        order.status === "PROCESSING"
-    ).length;
-
-  const completedOrders =
-    orders.filter(
-      (order) =>
-        order.status === "COMPLETED"
-    ).length;
-
-  /* =====================================================
-     UI
-  ===================================================== */
+  const chartMax = Math.max(1, ...chartData.map((item) => item.revenue));
+  const chartPoints = chartData.map((item, index) => ({
+    ...item,
+    x: chartData.length <= 1 ? 350 : 45 + (index * 610) / (chartData.length - 1),
+    y: 184 - (item.revenue / chartMax) * 130,
+  }));
+  const linePoints = chartPoints.map((item) => `${item.x},${item.y}`).join(" ");
+  const areaPoints = chartPoints.length > 1
+    ? `${chartPoints[0].x},184 ${linePoints} ${chartPoints[chartPoints.length - 1].x},184`
+    : "";
+  const latestOrders = [...selectedOrders]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 5);
+  const displayName = username || "Naya";
 
   return (
-    <main className="min-h-screen bg-[#F6F2EC] text-[#211A16]">
-
-      {/* =================================================
-          HEADER
-      ================================================= */}
-
-      <header className="border-b border-[#E8E0D8] bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
-
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#8A6348]">
-              GET-HERE COFFEE
-            </p>
-
-            <h1 className="mt-1 text-2xl font-bold">
-              Admin Dashboard
-            </h1>
-          </div>
-
-          <button
-            onClick={async () => {
-              await fetch(
-                "/api/admin/logout",
-                {
-                  method: "POST",
-                }
-              );
-
-              window.location.href =
-                "/admin/login";
-            }}
-            className="rounded-full bg-[#211A16] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#8A6348]"
-          >
-            Logout
-          </button>
-
+    <div className="mx-auto max-w-[1600px] space-y-6">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-[#777771]">Ringkasan GetHere Coffee</p>
+          <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-[34px]">Selamat datang, {displayName}!</h1>
+          <p className="mt-1.5 text-sm text-[#73736D]">Pantau penjualan, pesanan, dan performa toko dari satu tempat.</p>
         </div>
-      </header>
-
-      <div className="mx-auto max-w-7xl px-6 py-8">
-
-        {/* =================================================
-            STATISTICS
-        ================================================= */}
-
-        <div className="grid gap-4 md:grid-cols-4">
-
-          <div className="rounded-3xl bg-white p-6 shadow-sm">
-            <p className="text-sm text-[#6F625A]">
-              Total Pesanan
-            </p>
-
-            <p className="mt-2 text-3xl font-bold">
-              {totalOrders}
-            </p>
+        <div className="flex w-fit flex-col gap-1.5">
+          <label htmlFor="dashboard-report-date" className="text-[11px] font-semibold text-[#777771]">
+            Tanggal laporan
+          </label>
+          <div className="inline-flex items-center gap-2 rounded-xl border border-[#E4E4E0] bg-white px-3.5 py-2.5 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+            <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
+            <input
+              id="dashboard-report-date"
+              type="date"
+              value={selectedDate}
+              min={minimumReportDate}
+              max={todayKey}
+              disabled={!reportIsReady}
+              onChange={(event: { target: { value: string } }) => {
+                const nextDate = event.target.value;
+                if (!nextDate || nextDate < minimumReportDate || nextDate > todayKey) return;
+                setSelectedDate(nextDate);
+              }}
+              aria-label="Pilih tanggal laporan, maksimal 30 hari ke belakang"
+              className="min-w-0 cursor-pointer bg-transparent text-sm font-medium text-[#33332F] outline-none disabled:cursor-wait disabled:opacity-60"
+            />
           </div>
-
-          <div className="rounded-3xl bg-white p-6 shadow-sm">
-            <p className="text-sm text-[#6F625A]">
-              Menunggu
-            </p>
-
-            <p className="mt-2 text-3xl font-bold">
-              {pendingOrders}
-            </p>
-          </div>
-
-          <div className="rounded-3xl bg-white p-6 shadow-sm">
-            <p className="text-sm text-[#6F625A]">
-              Diproses
-            </p>
-
-            <p className="mt-2 text-3xl font-bold">
-              {processingOrders}
-            </p>
-          </div>
-
-          <div className="rounded-3xl bg-white p-6 shadow-sm">
-            <p className="text-sm text-[#6F625A]">
-              Selesai
-            </p>
-
-            <p className="mt-2 text-3xl font-bold">
-              {completedOrders}
-            </p>
-          </div>
-
+          <p className="text-[10px] text-[#85857F]">Hari ini hingga 30 hari sebelumnya</p>
         </div>
-
-        {/* ==========================================================
-                LAPORAN PENJUALAN
-            ========================================================== */}
-
-            <section className="mt-8">
-              <div className="mb-5">
-                <p className="text-xs font-bold uppercase tracking-[0.25em] text-[#8A6348]">
-                  Sales Report
-                </p>
-
-                <h2 className="mt-1 text-2xl font-black text-[#261C17]">
-                  Laporan Penjualan
-                </h2>
-
-                <p className="mt-1 text-sm text-[#756B63]">
-                  Pantau performa penjualan GetHere
-                  berdasarkan periode.
-                </p>
-              </div>
-
-              {/* FILTER PERIODE */}
-
-              <div className="mb-5 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setReportPeriod("DAY")
-                  }
-                  className={`rounded-full px-5 py-2.5 text-sm font-bold transition ${
-                    reportPeriod === "DAY"
-                      ? "bg-[#40551F] text-white"
-                      : "bg-white text-[#5F5147] border border-[#DED2C6]"
-                  }`}
-                >
-                  Hari Ini
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setReportPeriod("WEEK")
-                  }
-                  className={`rounded-full px-5 py-2.5 text-sm font-bold transition ${
-                    reportPeriod === "WEEK"
-                      ? "bg-[#40551F] text-white"
-                      : "bg-white text-[#5F5147] border border-[#DED2C6]"
-                  }`}
-                >
-                  Minggu Ini
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setReportPeriod("MONTH")
-                  }
-                  className={`rounded-full px-5 py-2.5 text-sm font-bold transition ${
-                    reportPeriod === "MONTH"
-                      ? "bg-[#40551F] text-white"
-                      : "bg-white text-[#5F5147] border border-[#DED2C6]"
-                  }`}
-                >
-                  Bulan Ini
-                </button>
-              </div>
-
-              {/* STATISTIK */}
-
-              <div className="grid gap-4 md:grid-cols-3">
-
-                {/* PESANAN */}
-
-                <div className="rounded-3xl border border-[#E6DCD1] bg-white p-6 shadow-sm">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-xs font-semibold text-[#756B63]">
-                        Pesanan
-                      </p>
-
-                      <h3 className="mt-2 text-3xl font-black text-[#261C17]">
-                        {reportOrders.length}
-                      </h3>
-                    </div>
-
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#EEF3E5] text-xl">
-                      🧾
-                    </div>
-                  </div>
-
-                  <p className="mt-4 text-xs text-[#756B63]">
-                    Pesanan yang sudah dibayar
-                  </p>
-                </div>
-
-                {/* PRODUK TERJUAL */}
-
-                <div className="rounded-3xl border border-[#E6DCD1] bg-white p-6 shadow-sm">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-xs font-semibold text-[#756B63]">
-                        Produk Terjual
-                      </p>
-
-                      <h3 className="mt-2 text-3xl font-black text-[#261C17]">
-                        {reportProductsSold}
-                      </h3>
-                    </div>
-
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#F4E9DE] text-xl">
-                      ☕
-                    </div>
-                  </div>
-
-                  <p className="mt-4 text-xs text-[#756B63]">
-                    Total item yang terjual
-                  </p>
-                </div>
-
-                {/* OMZET */}
-
-                <div className="rounded-3xl border border-[#40551F] bg-[#40551F] p-6 text-white shadow-sm">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-xs font-medium text-white/70">
-                        Omzet
-                      </p>
-
-                      <h3 className="mt-2 text-2xl font-black">
-                        {formatRupiah(
-                          reportRevenue
-                        )}
-                      </h3>
-                    </div>
-
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 text-xl">
-                      💰
-                    </div>
-                  </div>
-
-                  <p className="mt-4 text-xs text-white/70">
-                    Total penjualan periode ini
-                  </p>
-                </div>
-
-              </div>
-
-              {/* PRODUK TERLARIS */}
-
-              <div className="mt-5 rounded-3xl border border-[#E6DCD1] bg-white p-6 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-black text-[#261C17]">
-                      Produk Terlaris
-                    </h3>
-
-                    <p className="mt-1 text-xs text-[#756B63]">
-                      Produk dengan jumlah penjualan
-                      terbanyak.
-                    </p>
-                  </div>
-
-                  <span className="rounded-full bg-[#EEF3E5] px-3 py-1 text-xs font-bold text-[#40551F]">
-                    Top 5
-                  </span>
-                </div>
-
-                {bestSellingProducts.length === 0 ? (
-                  <div className="py-10 text-center text-sm text-[#756B63]">
-                    Belum ada penjualan pada
-                    periode ini.
-                  </div>
-                ) : (
-                  <div className="mt-5 divide-y divide-[#EEE6DE]">
-                    {bestSellingProducts.map(
-                      (product, index) => (
-                        <div
-                          key={product.productId}
-                          className="flex items-center justify-between gap-4 py-4"
-                        >
-                          <div className="flex min-w-0 items-center gap-4">
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#F1E9E0] text-sm font-black text-[#6D321B]">
-                              {index + 1}
-                            </div>
-
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-bold text-[#261C17]">
-                                {product.name}
-                              </p>
-
-                              <p className="mt-1 text-xs text-[#756B63]">
-                                {product.quantity} item
-                                terjual
-                              </p>
-                            </div>
-                          </div>
-
-                          <p className="shrink-0 text-sm font-bold text-[#40551F]">
-                            {formatRupiah(
-                              product.revenue
-                            )}
-                          </p>
-                        </div>
-                      )
-                    )}
-                  </div>
-                )}
-              </div>
-            </section>
-
-        {/* =================================================
-            PRODUCT MANAGEMENT
-        ================================================= */}
-
-        <div className="mt-10">
-
-          <div className="mb-5 flex flex-col justify-between gap-4 md:flex-row md:items-center">
-
-            <div>
-              <h2 className="text-2xl font-bold">
-                Manajemen Produk
-              </h2>
-
-              <p className="mt-1 text-sm text-[#6F625A]">
-                Kelola produk yang
-                ditampilkan di GET-HERE
-                Coffee.
-              </p>
-            </div>
-
-            <div className="flex gap-3">
-
-              <button
-                onClick={fetchProducts}
-                className="rounded-full border border-[#DCCFC5] bg-white px-5 py-2 text-sm font-semibold transition hover:bg-[#F1EAE3]"
-              >
-                Refresh
-              </button>
-
-              <button
-                onClick={openAddProduct}
-                className="rounded-full bg-[#211A16] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#8A6348]"
-              >
-                + Tambah Produk
-              </button>
-
-            </div>
-
-          </div>
-
-          {productLoading ? (
-
-            <div className="rounded-3xl bg-white p-10 text-center">
-              <p className="text-[#6F625A]">
-                Memuat produk...
-              </p>
-            </div>
-
-          ) : products.length === 0 ? (
-
-            <div className="rounded-3xl bg-white p-10 text-center">
-
-              <p className="text-lg font-semibold">
-                Belum ada produk.
-              </p>
-
-              <p className="mt-2 text-sm text-[#6F625A]">
-                Tambahkan produk pertama
-                GET-HERE Coffee.
-              </p>
-
-            </div>
-
-          ) : (
-
-            <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-
-              {products.map(
-                (product) => {
-
-                  const finalPrice =
-                    product.price -
-                    product.price *
-                      (product.discountPercent /
-                        100);
-
-                  return (
-
-                    <div
-                      key={product.id}
-                      className="overflow-hidden rounded-3xl bg-white shadow-sm transition hover:shadow-md"
-                    >
-
-                      {/* =================================
-                          FOTO UTAMA
-                      ================================= */}
-
-                      <div
-                        className="relative h-52 overflow-hidden bg-[#F1EAE3]"
-                      >
-
-                        {product.image ? (
-
-                          <img
-                            src={
-                              product.image
-                            }
-                            alt={
-                              product.name
-                            }
-                            className="h-full w-full object-cover transition duration-500 hover:scale-105"
-                          />
-
-                        ) : (
-
-                          <div className="flex h-full items-center justify-center text-5xl">
-                            ☕
-                          </div>
-
-                        )}
-
-                        {/* AVAILABLE BADGE */}
-
-                        <div className="absolute left-3 top-3">
-
-                          <span
-                            className={`rounded-full px-3 py-1 text-xs font-semibold backdrop-blur ${
-                              product.isAvailable
-                                ? "bg-green-100/90 text-green-700"
-                                : "bg-red-100/90 text-red-700"
-                            }`}
-                          >
-                            {product.isAvailable
-                              ? "Tersedia"
-                              : "Tidak tersedia"}
-                          </span>
-
-                        </div>
-
-                      </div>
-
-                      {/* =================================
-                          PRODUCT CONTENT
-                      ================================= */}
-
-                      <div className="p-5">
-
-                        <div className="flex items-start justify-between gap-3">
-
-                          <div className="min-w-0">
-
-                            <h3 className="text-lg font-bold">
-                              {product.name}
-                            </h3>
-
-                            <span
-                              className={`mt-2 inline-flex rounded-full px-3 py-1 text-xs font-bold ${
-                                product.category ===
-                                "COFFEE"
-                                  ? "bg-[#E8DED3] text-[#6B4F3A]"
-                                  : "bg-green-100 text-green-700"
-                              }`}
-                            >
-                              {product.category ===
-                              "COFFEE"
-                                ? "☕ Coffee"
-                                : "🥤 Non Coffee"}
-                            </span>
-
-                            {product.description && (
-                              <p className="mt-2 text-sm text-[#6F625A]">
-                                {
-                                  product.description
-                                }
-                              </p>
-                            )}
-
-                          </div>
-
-                        </div>
-
-                        {/* PRICE */}
-
-                        <div className="mt-5">
-
-                          {product.discountPercent >
-                          0 ? (
-
-                            <>
-                              <p className="text-sm text-[#8A7A70] line-through">
-                                {formatRupiah(
-                                  product.price
-                                )}
-                              </p>
-
-                              <div className="flex items-center gap-2">
-
-                                <p className="text-xl font-bold">
-                                  {formatRupiah(
-                                    finalPrice
-                                  )}
-                                </p>
-
-                                <span className="rounded-full bg-red-100 px-2 py-1 text-xs font-semibold text-red-600">
-                                  -
-                                  {
-                                    product.discountPercent
-                                  }
-                                  %
-                                </span>
-
-                              </div>
-                            </>
-
-                          ) : (
-
-                            <p className="text-xl font-bold">
-                              {formatRupiah(
-                                product.price
-                              )}
-                            </p>
-
-                          )}
-
-                        </div>
-
-                        {/* QUICK PACKAGING INFO */}
-
-                        <div className="mt-4 grid grid-cols-2 gap-2">
-
-                          <div className="rounded-xl bg-[#F6F2EC] px-3 py-2">
-
-                            <p className="text-[10px] font-bold uppercase text-[#8A7A70]">
-                              Cup
-                            </p>
-
-                            <p className="mt-1 text-xs font-semibold">
-                              {product.cupPrice !==
-                              null &&
-                              product.cupPrice !==
-                              undefined
-                                ? formatRupiah(
-                                    product.cupPrice
-                                  )
-                                : "-"}
-                            </p>
-
-                          </div>
-
-                          <div className="rounded-xl bg-[#F6F2EC] px-3 py-2">
-
-                            <p className="text-[10px] font-bold uppercase text-[#8A7A70]">
-                              Bottle
-                            </p>
-
-                            <p className="mt-1 text-xs font-semibold">
-                              {product.bottlePrice !==
-                              null &&
-                              product.bottlePrice !==
-                              undefined
-                                ? formatRupiah(
-                                    product.bottlePrice
-                                  )
-                                : "-"}
-                            </p>
-
-                          </div>
-
-                        </div>
-
-                        {/* ACTION */}
-
-                        <div className="mt-5 flex gap-3">
-
-                          <button
-                            onClick={() =>
-                              openEditProduct(
-                                product
-                              )
-                            }
-                            className="flex-1 rounded-full border border-[#DCCFC5] px-4 py-2 text-sm font-semibold transition hover:bg-[#F1EAE3]"
-                          >
-                            Edit
-                          </button>
-
-                          <button
-                            onClick={() =>
-                              deleteProduct(
-                                product
-                              )
-                            }
-                            className="flex-1 rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50"
-                          >
-                            Hapus
-                          </button>
-
-                        </div>
-
-                      </div>
-
-                    </div>
-
-                  );
-                }
-              )}
-
-            </div>
-
-          )}
-
-        </div>
-
-        {/* =================================================
-            PRODUCT FORM MODAL
-        ================================================= */}
-
-        {showProductForm && (
-
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-
-            <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-6 shadow-xl">
-
-              {/* HEADER MODAL */}
-
-              <div className="mb-6 flex items-center justify-between">
-
-                <div>
-
-                  <h2 className="text-xl font-bold">
-                    {editingProduct
-                      ? "Edit Produk"
-                      : "Tambah Produk"}
-                  </h2>
-
-                  <p className="mt-1 text-sm text-[#6F625A]">
-                    Isi informasi produk
-                    GET-HERE Coffee.
-                  </p>
-
-                </div>
-
-                <button
-                  onClick={() => {
-                    setShowProductForm(
-                      false
-                    );
-                    resetProductForm();
-                  }}
-                  className="text-xl text-[#6F625A] hover:text-[#211A16]"
-                >
-                  ✕
-                </button>
-
-              </div>
-
-              <form
-                onSubmit={saveProduct}
-                className="space-y-5"
-              >
-
-                {/* NAME */}
-
-                <div>
-
-                  <label className="mb-2 block text-sm font-semibold">
-                    Nama Produk
-                  </label>
-
-                  <input
-                    type="text"
-                    value={productName}
-                    onChange={(e) =>
-                      setProductName(
-                        e.target.value
-                      )
-                    }
-                    placeholder="Contoh: Matcha Latte"
-                    className="w-full rounded-2xl border border-[#E8E0D8] px-4 py-3 outline-none focus:border-[#8A6348]"
-                  />
-
-                </div>
-
-                {/* DESCRIPTION */}
-
-                <div>
-
-                  <label className="mb-2 block text-sm font-semibold">
-                    Deskripsi
-                  </label>
-
-                  <textarea
-                    value={
-                      productDescription
-                    }
-                    onChange={(e) =>
-                      setProductDescription(
-                        e.target.value
-                      )
-                    }
-                    placeholder="Deskripsi produk..."
-                    rows={3}
-                    className="w-full resize-none rounded-2xl border border-[#E8E0D8] px-4 py-3 outline-none focus:border-[#8A6348]"
-                  />
-
-                </div>
-
-                {/* CATEGORY */}
-
-                <div>
-
-                  <label className="mb-2 block text-sm font-semibold">
-                    Kategori Menu
-                  </label>
-
-                  <select
-                    value={
-                      productCategory
-                    }
-                    onChange={(e) =>
-                      setProductCategory(
-                        e.target.value as
-                          | "COFFEE"
-                          | "NON_COFFEE"
-                      )
-                    }
-                    className="w-full rounded-2xl border border-[#E8E0D8] bg-white px-4 py-3 outline-none focus:border-[#8A6348]"
-                  >
-                    <option value="COFFEE">
-                      ☕ Coffee
-                    </option>
-
-                    <option value="NON_COFFEE">
-                      🥤 Non Coffee
-                    </option>
-                  </select>
-
-                  <p className="mt-1 text-xs text-[#8A7A70]">
-                    Pilih kategori menu
-                    untuk produk ini.
-                  </p>
-
-                </div>
-
-                {/* HARGA */}
-
-                <div className="space-y-4">
-
-                  <div>
-
-                    <label className="mb-2 block text-sm font-semibold">
-                      Harga Dasar
-                    </label>
-
-                    <input
-                      type="number"
-                      min="0"
-                      value={productPrice}
-                      onChange={(e) =>
-                        setProductPrice(
-                          e.target.value
-                        )
-                      }
-                      placeholder="22000"
-                      className="w-full rounded-2xl border border-[#E8E0D8] px-4 py-3 outline-none focus:border-[#8A6348]"
-                    />
-
-                    <p className="mt-1 text-xs text-[#8A7A70]">
-                      Harga dasar produk.
-                    </p>
-
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-
-                    <div>
-
-                      <label className="mb-2 block text-sm font-semibold">
-                        🥤 Harga Cup
-                      </label>
-
-                      <input
-                        type="number"
-                        min="0"
-                        value={
-                          productCupPrice
-                        }
-                        onChange={(e) =>
-                          setProductCupPrice(
-                            e.target.value
-                          )
-                        }
-                        placeholder="22500"
-                        className="w-full rounded-2xl border border-[#E8E0D8] px-4 py-3 outline-none focus:border-[#8A6348]"
-                      />
-
-                    </div>
-
-                    <div>
-
-                      <label className="mb-2 block text-sm font-semibold">
-                        🍶 Harga Bottle
-                      </label>
-
-                      <input
-                        type="number"
-                        min="0"
-                        value={
-                          productBottlePrice
-                        }
-                        onChange={(e) =>
-                          setProductBottlePrice(
-                            e.target.value
-                          )
-                        }
-                        placeholder="25000"
-                        className="w-full rounded-2xl border border-[#E8E0D8] px-4 py-3 outline-none focus:border-[#8A6348]"
-                      />
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-                {/* DISCOUNT */}
-
-                <div>
-
-                  <label className="mb-2 block text-sm font-semibold">
-                    Diskon (%)
-                  </label>
-
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={
-                      productDiscount
-                    }
-                    onChange={(e) =>
-                      setProductDiscount(
-                        e.target.value
-                      )
-                    }
-                    className="w-full rounded-2xl border border-[#E8E0D8] px-4 py-3 outline-none focus:border-[#8A6348]"
-                  />
-
-                </div>
-
-                {/* =================================================
-                    FOTO UTAMA
-                ================================================= */}
-
-                <div>
-
-                  <label className="mb-2 block text-sm font-semibold">
-                    🖼️ Foto Utama Produk
-                  </label>
-
-                  <input
-                    type="text"
-                    value={productImage}
-                    onChange={(e) =>
-                      setProductImage(
-                        e.target.value
-                      )
-                    }
-                    placeholder="https://..."
-                    className="w-full rounded-2xl border border-[#E8E0D8] px-4 py-3 outline-none focus:border-[#8A6348]"
-                  />
-
-                  {productImage && (
-                    <div className="mt-3 h-32 overflow-hidden rounded-2xl bg-[#F1EAE3]">
-
-                      <img
-                        src={productImage}
-                        alt="Preview produk"
-                        className="h-full w-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.style.display =
-                            "none";
-                        }}
-                      />
-
-                    </div>
-                  )}
-
-                  <p className="mt-1 text-xs text-[#8A7A70]">
-                    Foto yang tampil sebagai
-                    foto utama kartu produk.
-                  </p>
-
-                </div>
-
-                {/* AVAILABLE */}
-
-                <label className="flex cursor-pointer items-center gap-3 rounded-2xl bg-[#F6F2EC] p-4">
-
-                  <input
-                    type="checkbox"
-                    checked={
-                      productAvailable
-                    }
-                    onChange={(e) =>
-                      setProductAvailable(
-                        e.target.checked
-                      )
-                    }
-                    className="h-5 w-5"
-                  />
-
-                  <div>
-
-                    <p className="text-sm font-semibold">
-                      Produk tersedia
-                    </p>
-
-                    <p className="text-xs text-[#6F625A]">
-                      Produk dapat dibeli
-                      oleh pelanggan.
-                    </p>
-
-                  </div>
-
-                </label>
-
-                {/* BUTTON */}
-
-                <div className="flex gap-3 pt-2">
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowProductForm(
-                        false
-                      );
-                      resetProductForm();
-                    }}
-                    className="flex-1 rounded-full border border-[#DCCFC5] px-5 py-3 text-sm font-semibold hover:bg-[#F1EAE3]"
-                  >
-                    Batal
-                  </button>
-
-                  <button
-                    type="submit"
-                    disabled={
-                      savingProduct
-                    }
-                    className="flex-1 rounded-full bg-[#211A16] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#8A6348] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {savingProduct
-                      ? "Menyimpan..."
-                      : editingProduct
-                      ? "Simpan Perubahan"
-                      : "Tambah Produk"}
-                  </button>
-
-                </div>
-
-              </form>
-
-            </div>
-
-          </div>
-
-        )}
-
-        {/* =================================================
-            ORDER LIST
-        ================================================= */}
-
-        <div className="mt-10">
-
-          <div className="mb-5 flex items-center justify-between">
-
-            <div>
-
-              <h2 className="text-2xl font-bold">
-                Daftar Pesanan
-              </h2>
-
-              <p className="mt-1 text-sm text-[#6F625A]">
-                Kelola pesanan pelanggan
-                GET-HERE Coffee.
-              </p>
-
-            </div>
-
-            <button
-              onClick={fetchOrders}
-              className="rounded-full border border-[#DCCFC5] bg-white px-5 py-2 text-sm font-semibold transition hover:bg-[#F1EAE3]"
-            >
-              Refresh
-            </button>
-
-          </div>
-
-          {loading ? (
-
-            <div className="rounded-3xl bg-white p-10 text-center">
-
-              <p className="text-[#6F625A]">
-                Memuat pesanan...
-              </p>
-
-            </div>
-
-          ) : orders.length === 0 ? (
-
-            <div className="rounded-3xl bg-white p-10 text-center">
-
-              <p className="text-lg font-semibold">
-                Belum ada pesanan.
-              </p>
-
-              <p className="mt-2 text-sm text-[#6F625A]">
-                Pesanan pelanggan akan
-                muncul di sini.
-              </p>
-
-            </div>
-
-          ) : (
-
-            <div className="space-y-5">
-
-              {orders.map(
-                (order) => (
-
-                  <div
-                    key={order.id}
-                    className="rounded-3xl bg-white p-6 shadow-sm"
-                  >
-
-                    {/* ORDER HEADER */}
-
-                    <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
-
-                      <div>
-
-                        <div className="flex items-center gap-3">
-
-                          <h3 className="text-xl font-bold">
-                            Order #{order.id}
-                          </h3>
-
-                          <div className="flex flex-wrap gap-2">
-
-                            <span
-                              className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusClass(
-                                order.status
-                              )}`}
-                            >
-                              Order:{" "}
-                              {
-                                order.status
-                              }
-                            </span>
-
-                            <span
-                              className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                                order.paymentStatus ===
-                                "PAID"
-                                  ? "bg-green-100 text-green-700"
-                                  : order.paymentStatus ===
-                                    "FAILED"
-                                  ? "bg-red-100 text-red-700"
-                                  : order.paymentStatus ===
-                                    "EXPIRED"
-                                  ? "bg-gray-100 text-gray-700"
-                                  : "bg-yellow-100 text-yellow-700"
-                              }`}
-                            >
-                              Payment:{" "}
-                              {
-                                order.paymentStatus
-                              }
-                            </span>
-
-                          </div>
-
-                        </div>
-
-                        <p className="mt-2 text-sm text-[#6F625A]">
-                          {new Date(
-                            order.createdAt
-                          ).toLocaleString(
-                            "id-ID"
-                          )}
-                        </p>
-
-                      </div>
-
-                      <p className="text-xl font-bold">
-                        {formatRupiah(
-                          order.totalPrice
-                        )}
-                      </p>
-
-                    </div>
-
-                    {/* CUSTOMER */}
-
-                    <div className="mt-6 grid gap-5 md:grid-cols-3">
-
-                      <div>
-
-                        <p className="text-xs font-semibold uppercase tracking-wide text-[#8A7A70]">
-                          Pelanggan
-                        </p>
-
-                        <p className="mt-1 font-semibold">
-                          {
-                            order.customerName
-                          }
-                        </p>
-
-                      </div>
-
-                      <div>
-
-                        <p className="text-xs font-semibold uppercase tracking-wide text-[#8A7A70]">
-                          WhatsApp
-                        </p>
-
-                        <p className="mt-1 font-semibold">
-                          {order.whatsapp}
-                        </p>
-
-                      </div>
-
-                      <div>
-
-                        <p className="text-xs font-semibold uppercase tracking-wide text-[#8A7A70]">
-                          Alamat
-                        </p>
-
-                        <p className="mt-1 text-sm">
-                          {order.address}
-                        </p>
-
-                      </div>
-
-                    </div>
-
-                    {/* =================================================
-                        ITEMS
-                    ================================================= */}
-
-                    <div className="mt-6 rounded-2xl bg-[#F6F2EC] p-4">
-
-                      <p className="mb-3 text-sm font-semibold">
-                        Produk
-                      </p>
-
-                      <div className="space-y-3">
-
-                        {order.items.map(
-                          (item) => {
-
-                            const product =
-                              products.find(
-                                (
-                                  product
-                                ) =>
-                                  product.id ===
-                                  item.productId
-                              );
-
-                            const itemImage =
-                              getOrderItemImage(
-                                item
-                              );
-
-                            const packagingLabel =
-                              getPackagingLabel(
-                                item.packaging
-                              );
-
-                            return (
-
-                              <div
-                                key={
-                                  item.id
-                                }
-                                className="flex items-center justify-between gap-4 rounded-2xl bg-white p-3"
-                              >
-
-                                {/* LEFT */}
-
-                                <div className="flex min-w-0 items-center gap-3">
-
-                                  {/* FOTO */}
-
-                                  <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-[#E8DED3]">
-
-                                    {itemImage ? (
-
-                                      <img
-                                        src={
-                                          itemImage
-                                        }
-                                        alt={
-                                          item.name
-                                        }
-                                        className="h-full w-full object-cover"
-                                      />
-
-                                    ) : (
-
-                                      <div className="flex h-full w-full items-center justify-center text-2xl">
-                                        {packagingLabel ===
-                                        "Bottle"
-                                          ? "🍶"
-                                          : "🥤"}
-                                      </div>
-
-                                    )}
-
-                                  </div>
-
-                                  {/* INFO */}
-
-                                  <div className="min-w-0">
-
-                                    <p className="truncate font-semibold">
-                                      {
-                                        item.name
-                                      }
-                                    </p>
-
-                                    <div className="mt-1 flex flex-wrap items-center gap-2">
-
-                                      <span className="rounded-full bg-[#F1EAE3] px-2 py-1 text-[11px] font-semibold text-[#6B4F3A]">
-                                        {packagingLabel}
-                                      </span>
-
-                                      <span className="text-sm text-[#6F625A]">
-                                        {
-                                          item.quantity
-                                        }{" "}
-                                        ×{" "}
-                                        {formatRupiah(
-                                          item.price
-                                        )}
-                                      </span>
-
-                                    </div>
-
-                                    {product && (
-                                      <p className="mt-1 text-xs text-[#8A7A70]">
-                                        {product.category ===
-                                        "COFFEE"
-                                          ? "Coffee"
-                                          : "Non Coffee"}
-                                      </p>
-                                    )}
-
-                                  </div>
-
-                                </div>
-
-                                {/* TOTAL */}
-
-                                <p className="shrink-0 font-semibold">
-                                  {formatRupiah(
-                                    item.price *
-                                      item.quantity
-                                  )}
-                                </p>
-
-                              </div>
-
-                            );
-                          }
-                        )}
-
-                      </div>
-
-                    </div>
-
-                    {/* NOTE */}
-
-                    {order.note && (
-
-                      <div className="mt-4 rounded-2xl border border-[#E8E0D8] p-4">
-
-                        <p className="text-xs font-semibold uppercase tracking-wide text-[#8A7A70]">
-                          Catatan
-                        </p>
-
-                        <p className="mt-1 text-sm">
-                          {order.note}
-                        </p>
-
-                      </div>
-
-                    )}
-
-                    {/* ACTION */}
-
-                    <div className="mt-6 flex flex-wrap gap-3">
-
-                      {order.status ===
-                        "PENDING" && (
-
-                        <>
-
-                          <button
-                            onClick={() =>
-                              updateStatus(
-                                order.id,
-                                "PROCESSING"
-                              )
-                            }
-                            className="rounded-full bg-[#211A16] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#8A6348]"
-                          >
-                            Proses Pesanan
-                          </button>
-
-                          <button
-                            onClick={() =>
-                              updateStatus(
-                                order.id,
-                                "CANCELLED"
-                              )
-                            }
-                            className="rounded-full border border-red-200 px-5 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50"
-                          >
-                            Batalkan
-                          </button>
-
-                        </>
-
-                      )}
-
-                      {order.status ===
-                        "PROCESSING" && (
-
-                        <>
-
-                          <button
-                            onClick={() =>
-                              updateStatus(
-                                order.id,
-                                "SHIPPING"
-                              )
-                            }
-                            className="rounded-full bg-[#211A16] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#8A6348]"
-                          >
-                            🛵 Kirim Pesanan
-                          </button>
-
-                          <button
-                            onClick={() =>
-                              updateStatus(
-                                order.id,
-                                "CANCELLED"
-                              )
-                            }
-                            className="rounded-full border border-red-200 px-5 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50"
-                          >
-                            Batalkan
-                          </button>
-
-                        </>
-
-                      )}
-
-                      {order.status ===
-                        "SHIPPING" && (
-
-                        <button
-                          onClick={() =>
-                            updateStatus(
-                              order.id,
-                              "COMPLETED"
-                            )
-                          }
-                          className="rounded-full bg-green-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-green-700"
-                        >
-                          ✓ Tandai Selesai
-                        </button>
-
-                      )}
-
-                      {order.status ===
-                        "COMPLETED" && (
-
-                        <span className="rounded-full bg-green-100 px-5 py-2 text-sm font-semibold text-green-700">
-                          Pesanan Selesai
-                        </span>
-
-                      )}
-
-                      {order.status ===
-                        "CANCELLED" && (
-
-                        <span className="rounded-full bg-red-100 px-5 py-2 text-sm font-semibold text-red-700">
-                          Pesanan Dibatalkan
-                        </span>
-
-                      )}
-
-                    </div>
-
-                  </div>
-
-                )
-              )}
-
-            </div>
-
-          )}
-
-        </div>
-
       </div>
 
-    </main>
+      {loadError && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{loadError} Coba refresh halaman setelah memastikan API admin dapat diakses.</div>}
+
+      {/* KEY METRICS */}
+      <section className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
+        {[
+          { label: "Total Penjualan", value: reportIsReady ? money(totalRevenue) : "—", note: `Pembayaran berhasil · ${selectedDate ? formatDateKey(selectedDate) : "memuat tanggal"}`, icon: "Rp" },
+          { label: "Total Pesanan", value: loading || !reportIsReady ? "—" : String(selectedOrders.length), note: `${selectedOrders.filter((order) => order.status === "PENDING").length} menunggu diproses pada tanggal ini`, icon: "#" },
+          { label: "Total Produk", value: loading ? "—" : String(products.length), note: `${products.filter((product) => product.isAvailable).length} produk tersedia`, icon: "▱" },
+          { label: "Pelanggan pada Tanggal Ini", value: loading || !reportIsReady ? "—" : String(customerCount), note: `${soldItems} item terjual dari pembayaran berhasil`, icon: "◎" },
+        ].map((metric) => (
+          <article key={metric.label} className="rounded-2xl border border-[#E7E7E3] bg-white p-5 shadow-[0_2px_10px_rgba(0,0,0,0.02)] sm:p-6">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm text-[#73736D]">{metric.label}</p>
+                <p className="mt-2 break-words text-2xl font-black tracking-tight text-[#171717] sm:text-[28px]">{loading && metric.label === "Total Penjualan" ? "Memuat..." : metric.value}</p>
+              </div>
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#F0F0ED] text-sm font-black text-[#242420]">{metric.icon}</span>
+            </div>
+            <p className="mt-3 text-xs text-[#85857F]">{metric.note}</p>
+          </article>
+        ))}
+      </section>
+
+      <div className="grid gap-6 2xl:grid-cols-[minmax(0,1.65fr)_minmax(330px,0.9fr)]">
+        {/* SALES CHART */}
+        <section className="min-w-0 rounded-2xl border border-[#E7E7E3] bg-white p-5 sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold">Grafik Penjualan</h2>
+              <p className="mt-1 text-sm text-[#85857F]">Omzet harian dari pembayaran berhasil, 7 hari hingga {selectedDate ? formatDateKey(selectedDate) : "tanggal dipilih"}.</p>
+            </div>
+            <span className="rounded-lg border border-[#E5E5E1] px-3 py-2 text-xs font-medium text-[#555550]">7 hari terakhir</span>
+          </div>
+          <div className="mt-5 overflow-x-auto">
+            <svg viewBox="0 0 700 235" className="h-[240px] min-w-[580px] w-full" role="img" aria-label="Grafik omzet penjualan tujuh hari terakhir">
+              {[54, 86, 119, 151, 184].map((y) => <line key={y} x1="45" y1={y} x2="655" y2={y} stroke="#EAEAE7" strokeWidth="1" />)}
+              {[45, 147, 248, 350, 451, 553, 655].map((x) => <line key={x} x1={x} y1="40" x2={x} y2="184" stroke="#F0F0ED" strokeWidth="1" />)}
+              {areaPoints && <polygon points={areaPoints} fill="url(#salesGradient)" />}
+              {linePoints && <polyline points={linePoints} fill="none" stroke="#171717" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />}
+              {chartPoints.map((point) => <g key={point.label}><circle cx={point.x} cy={point.y} r="4" fill="#171717" /><title>{point.label}: {money(point.revenue)}</title></g>)}
+              <defs><linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#171717" stopOpacity="0.16"/><stop offset="100%" stopColor="#171717" stopOpacity="0.01"/></linearGradient></defs>
+              {chartPoints.map((point) => <text key={`label-${point.label}`} x={point.x} y="211" textAnchor="middle" fontSize="11" fill="#777771">{point.label}</text>)}
+            </svg>
+          </div>
+          {chartData.every((item) => item.revenue === 0) && !loading && <p className="-mt-2 text-center text-xs text-[#85857F]">Belum ada omzet dari transaksi dibayar dalam rentang grafik ini.</p>}
+        </section>
+
+        {/* TOP PRODUCTS */}
+        <section className="rounded-2xl border border-[#E7E7E3] bg-white p-5 sm:p-6">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold">Produk Terlaris</h2>
+              <p className="mt-1 text-sm text-[#85857F]">Berdasarkan item pada pesanan dibayar.</p>
+            </div>
+            <Link href="/admin/products" className="shrink-0 text-xs font-semibold text-[#33332F] hover:underline">Lihat produk ↗</Link>
+          </div>
+          {topProducts.length === 0 ? (
+            <div className="flex min-h-[220px] flex-col items-center justify-center text-center">
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#F1F1EE] text-xl">—</span>
+              <p className="mt-3 text-sm font-semibold">Belum ada data penjualan</p>
+              <p className="mt-1 text-xs text-[#85857F]">Produk akan diurutkan setelah ada pembayaran berhasil.</p>
+            </div>
+          ) : (
+            <div className="mt-4 divide-y divide-[#EEEEEB]">
+              {topProducts.map((item, index) => {
+                const product = products.find((entry) => entry.id === item.productId);
+                return (
+                  <div key={item.productId} className="flex items-center gap-3 py-3.5 first:pt-1 last:pb-0">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#F0F0ED] text-xs font-bold">{index + 1}</span>
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#F2F2EF] text-[#42423D]">
+                      {product?.image ? <img src={product.image} alt={item.name} className="h-full w-full object-cover" /> : item.name.toLowerCase().includes("bottle") ? <BottlePackagingIcon className="h-6 w-6" /> : <CupPackagingIcon className="h-6 w-6" />}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold">{item.name}</p>
+                      <p className="mt-0.5 text-xs text-[#85857F]">{item.quantity} terjual</p>
+                    </div>
+                    <p className="shrink-0 text-xs font-bold sm:text-sm">{money(item.revenue)}</p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      </div>
+
+      {/* RECENT ORDERS */}
+      <section className="overflow-hidden rounded-2xl border border-[#E7E7E3] bg-white">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-5 sm:px-6">
+          <div>
+            <h2 className="text-lg font-bold">Pesanan pada Tanggal Laporan</h2>
+            <p className="mt-1 text-sm text-[#85857F]">Pesanan yang dibuat pada {selectedDate ? formatDateKey(selectedDate) : "tanggal terpilih"}.</p>
+          </div>
+          <Link href="/admin/orders" className="rounded-xl border border-[#E2E2DE] px-4 py-2 text-xs font-semibold transition hover:bg-[#F5F5F2]">Lihat semua pesanan ↗</Link>
+        </div>
+        {loading ? (
+          <div className="px-6 py-12 text-center text-sm text-[#777771]">Memuat pesanan terbaru...</div>
+        ) : latestOrders.length === 0 ? (
+          <div className="px-6 py-12 text-center"><p className="font-semibold">Belum ada pesanan pada tanggal ini</p><p className="mt-1 text-sm text-[#85857F]">Pilih tanggal lain, maksimal 30 hari ke belakang, untuk melihat laporan historis.</p></div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+              <thead className="bg-[#F7F7F5] text-xs text-[#666660]"><tr><th className="px-5 py-3.5 font-semibold">No. Pesanan</th><th className="px-5 py-3.5 font-semibold">Pelanggan</th><th className="px-5 py-3.5 font-semibold">Item</th><th className="px-5 py-3.5 font-semibold">Total</th><th className="px-5 py-3.5 font-semibold">Pembayaran</th><th className="px-5 py-3.5 font-semibold">Status</th><th className="px-5 py-3.5 font-semibold">Tanggal</th></tr></thead>
+              <tbody className="divide-y divide-[#EEEEEB]">
+                {latestOrders.map((order) => (
+                  <tr key={order.id} className="transition hover:bg-[#FAFAF8]">
+                    <td className="whitespace-nowrap px-5 py-4 font-semibold">#{order.id}</td>
+                    <td className="px-5 py-4"><p className="font-medium">{order.customerName}</p><p className="mt-0.5 text-xs text-[#85857F]">{order.whatsapp}</p></td>
+                    <td className="px-5 py-4">{(order.items ?? []).reduce((sum, item) => sum + item.quantity, 0)} item</td>
+                    <td className="whitespace-nowrap px-5 py-4 font-semibold">{money(order.totalPrice)}</td>
+                    <td className="px-5 py-4"><span className={`whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold ${order.paymentStatus === "PAID" ? "bg-emerald-100 text-emerald-800" : order.paymentStatus === "FAILED" || order.paymentStatus === "EXPIRED" ? "bg-rose-100 text-rose-800" : "bg-amber-100 text-amber-800"}`}>{paymentLabel(order.paymentStatus)}</span></td>
+                    <td className="px-5 py-4"><span className={`whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusTone(order.status)}`}>{statusLabel(order.status)}</span></td>
+                    <td className="whitespace-nowrap px-5 py-4 text-xs text-[#777771]">{new Date(order.createdAt).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* QUICK ACTION */}
+      <section className="flex flex-col justify-between gap-4 overflow-hidden rounded-2xl bg-[#EAEAE6] p-6 sm:flex-row sm:items-center sm:px-8">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#62625C]">Kelola toko</p>
+          <h2 className="mt-2 text-xl font-black tracking-tight">Pastikan menu dan pesanan selalu terbarui.</h2>
+          <p className="mt-1 text-sm text-[#666660]">Perbarui produk atau proses pesanan pelanggan berikutnya.</p>
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <Link href="/admin/products" className="rounded-xl bg-[#171715] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#373733]">Kelola produk</Link>
+          <Link href="/admin/orders" className="rounded-xl border border-[#D1D1CC] bg-white px-4 py-3 text-sm font-semibold transition hover:bg-[#F7F7F5]">Buka pesanan</Link>
+        </div>
+      </section>
+    </div>
   );
 }
